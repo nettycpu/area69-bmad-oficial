@@ -1,0 +1,31 @@
+uploads = []
+
+[[generated]]
+id = "UFPAayKXRv5DEDmVtO0a4"
+uri = "file://artifacts/area69/public/images/polaroid-1.png"
+type = "image"
+title = "Editorial polaroid 1"
+
+[[generated]]
+id = "xrEGTILc8GOXQ6a8yO00T"
+uri = "file://artifacts/area69/public/images/polaroid-2.png"
+type = "image"
+title = "Editorial polaroid 2"
+
+[[generated]]
+id = "ZkFA-zknIhBY2hTlG0FDu"
+uri = "file://artifacts/area69/public/images/polaroid-3.png"
+type = "image"
+title = "Editorial polaroid 3"
+
+[[generated]]
+id = "EOSWHmGU-gvR52o9UhU_x"
+uri = "file://artifacts/area69/public/images/polaroid-4.png"
+type = "image"
+title = "Editorial polaroid 4"
+
+[[outputs]]
+id = "eekD25xc_uRZsODkNTsMq"
+uri = "file://artifacts/area69/SECURITY_TODO.md"
+type = "text"
+title = "AREA 69 — Security TODO List (38 itens)"

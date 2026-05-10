@@ -1,0 +1,231 @@
+Você é um Staff Software Engineer. Gere um projeto Ruby on Rails APENAS backend (API-only) para a plataforma AREA 69.
+
+OBJETIVO
+- Backend robusto e previsível para jobs assíncronos de IA (Wavespeed + Higgsfield), com webhooks e fila.
+- Frontend é Next.js 15 (Vercel) e chamará este backend via HTTP.
+- Auth no frontend é Clerk; o backend valida JWT e associa requests ao user_id.
+- NÃO armazenar mídia (imagens/vídeos/fotos). Somente metadados e URLs retornadas pelos providers.
+- Dados de outputs expiram em 7 dias (limpar URLs/metadados e marcar expired).
+
+STACK OBRIGATÓRIA
+- Ruby 3.3+
+- Rails 7.1+ (ou Rails 8 se disponível no template do Replit)
+- API-only
+- PostgreSQL via Supabase (usar DATABASE_URL padrão do Supabase)
+- Background jobs com Solid Queue (DB-backed). Sem Redis no MVP.
+- Código limpo e “production grade”: idempotência, deduplicação de webhooks, validação de assinatura, replay protection, rate limit, CORS, logs estruturados.
+
+PROVIDERS
+1) Wavespeed AI (webhook maduro)
+- Ao submeter job, enviar "webhook" na requisição (URL do nosso backend).
+- Webhook de retorno: POST no nosso endpoint com assinatura HMAC-SHA256.
+Headers:
+  - webhook-id
+  - webhook-timestamp (unix)
+  - webhook-signature: "v3,<hmac_hex>"
+Regras:
+  - Verificar replay attack: timestamp dentro de 300s.
+  - Deduplicar por webhook-id (unique por provider + webhook_id).
+Payload: status, outputs (array de URLs), executionTime, error.
+Documentação (somente referência; não copie HTML):
+- https://wavespeed.ai/docs/how-to-use-webhooks
+- https://wavespeed.ai/docs/verify-webhooks
+
+2) Higgsfield Cloud (webhook existe, menos previsível)
+- Ao submeter job: enviar webhook_url no payload.
+- Também existe polling: GET /v1/generations/{id} (usar como fallback/safety net).
+- Como assinatura não é confirmada, proteger webhook com token secret:
+  /v1/webhooks/higgsfield?token=...
+E também aplicar rate limiting no endpoint e logs.
+
+ARQUITETURA DE JOBS (sem dívidas futuras)
+- "Webhook-first" para Wavespeed.
+- "Webhook primary + polling safety net" para Higgsfield.
+- Worker tem controle de concorrência global e por usuário (para evitar queda e rate-limit do provider).
+- Idempotência para criação de jobs via Idempotency-Key.
+- Nunca fazer request síncrono aguardando geração.
+
+BANCO (Supabase Postgres)
+- Usar PostgreSQL normal via DATABASE_URL.
+- NÃO usar recursos exclusivos do Supabase para lógica crítica (não depender de RLS/Edge Functions aqui), para permitir migração futura para Postgres gerenciado padrão sem mudanças.
+- Apenas SQL/migrations Rails convencionais.
+
+MODELOS E TABELAS (migrations completas)
+1) Generation (jobs de geração/edição)
+Campos:
+- id: uuid (primary key)
+- user_id: string (do Clerk JWT sub)
+- provider: string NOT NULL (validar inclusão: wavespeed|higgsfield)
+- kind: string NOT NULL (image|video|edit)
+- status: string NOT NULL (pending|submitted|running|completed|failed|expired)
+- prompt: text (nullable)
+- params: jsonb NOT NULL default {}
+- provider_job_id: string (nullable, index)
+- result_urls: jsonb (nullable) -> array de strings
+- execution_time_ms: integer (nullable)
+- error_code: string (nullable)
+- error_message: text (nullable)
+- idempotency_key: string (nullable)
+- expires_at: datetime NOT NULL
+- started_at: datetime (nullable)
+- completed_at: datetime (nullable)
+- expired_at: datetime (nullable)
+- created_at/updated_at
+
+Índices/constraints obrigatórios:
+- index unique em (user_id, idempotency_key) onde idempotency_key não é null
+- index em provider_job_id
+- index em (user_id, created_at)
+- CHECK/validações para enums via Rails validations (não SQL enum).
+
+2) AvatarTraining (treino Soul ID)
+Campos:
+- id: uuid
+- user_id: string
+- status: string (pending|submitted|running|completed|failed)
+- provider_job_id: string (index)
+- photos_count: integer NOT NULL default 0
+- input_photos_refs: jsonb NOT NULL default []  (apenas nomes/ids; sem arquivo)
+- result_model_id: string (nullable)  (Soul ID id)
+- error_message: text (nullable)
+- started_at/completed_at timestamps
+- created_at/updated_at
+
+3) WebhookEvent (dedup + auditoria)
+Campos:
+- id: uuid
+- provider: string NOT NULL (wavespeed|higgsfield)
+- webhook_id: string (nullable) (Wavespeed)
+- payload_hash: string (nullable) (Higgsfield e fallback)
+- received_at: datetime NOT NULL
+- raw_body: text (opcional, mas cuidado com PII; se incluir, limitar tamanho)
+Índices/constraints:
+- unique (provider, webhook_id) onde webhook_id não é null
+- unique (provider, payload_hash) onde payload_hash não é null
+
+ENDPOINTS (rotas versionadas)
+Base: /v1
+
+Auth:
+- Todas rotas /v1/* (exceto webhooks e health) exigem Authorization: Bearer <clerk_jwt>.
+- Validar JWT via JWKS (CLERK_JWKS_URL). Extrair sub como user_id.
+- Rejeitar se inválido.
+
+Health:
+- GET /health -> 200 {"ok":true}
+
+Generations:
+- POST /v1/generations
+  - header: Idempotency-Key (obrigatório)
+  - body: { provider, kind, prompt?, params? }
+  - cria Generation com status="pending", expires_at=now+7days
+  - se existir Generation com mesmo (user_id, idempotency_key), retornar o existente (idempotente)
+  - enfileirar job SubmitGenerationJob(generation_id)
+  - retorna 202 { id, status }
+
+- GET /v1/generations/:id
+  - só permite acessar se user_id dono
+  - retorna { id, status, result_urls?, error? , expires_at }
+
+- GET /v1/generations
+  - lista do user_id, ordenado desc
+  - paginação simples com limit + cursor (created_at + id) para não virar dívida futura
+
+Avatar trainings:
+- POST /v1/avatar_trainings
+  - header: Idempotency-Key (obrigatório)
+  - body: { photos_count, input_photos_refs: [...] , params? }
+  - cria AvatarTraining status=pending
+  - enfileira SubmitAvatarTrainingJob(training_id)
+  - retorna 202
+
+- GET /v1/avatar_trainings/:id (owner only)
+- GET /v1/avatar_trainings (owner only, paginado)
+
+Webhooks (sem auth Clerk):
+- POST /v1/webhooks/wavespeed
+  - verificar assinatura HMAC-SHA256 v3 com WAVESPEED_WEBHOOK_SECRET
+  - replay: timestamp dentro 300s
+  - dedup por webhook-id (salvar WebhookEvent)
+  - parse JSON
+  - localizar Generation por provider="wavespeed" + provider_job_id (do payload)
+  - atualizar status/result_urls/execution_time_ms/error
+  - responder 200 rápido (sem bloquear)
+  - qualquer erro de segurança -> 401
+
+- POST /v1/webhooks/higgsfield?token=...
+  - validar token == HIGGSFIELD_WEBHOOK_TOKEN
+  - dedup por payload_hash = SHA256(raw_body)
+  - parse JSON e tentar extrair provider_job_id
+  - atualizar Generation/AvatarTraining correspondentes
+  - responder 200 rápido
+
+CORS (sem dívida futura)
+- Permitir origem do frontend via ENV:
+  FRONTEND_ORIGIN=https://seu-app.vercel.app
+- Permitir Authorization e Idempotency-Key headers.
+- Permitir métodos GET/POST/DELETE/OPTIONS.
+
+RATE LIMIT (MVP, mas desenhado para migrar sem quebrar)
+- Implementar rate limit simples por user_id para endpoints POST de criação:
+  ex: 10 requests/min por user_id (config em ENV).
+- Colocar TODO explícito para migrar para Redis/Upstash quando houver escala, mas sem acoplar a lógica do app.
+
+JOBS (Solid Queue)
+- SubmitGenerationJob
+  - lê Generation
+  - marca status=submitted, started_at=now
+  - chama client do provider (Wavespeed/Higgsfield) e obtém provider_job_id
+  - salva provider_job_id
+  - (Wavespeed) enviar webhook URL: WAVESPEED_WEBHOOK_BASE_URL + "/v1/webhooks/wavespeed"
+  - (Higgsfield) enviar webhook_url: HIGGSFIELD_WEBHOOK_BASE_URL + "/v1/webhooks/higgsfield?token=..."
+  - lidar com falhas: status=failed com error_message
+
+- SubmitAvatarTrainingJob
+  - similar: submete treino, salva provider_job_id, status=submitted/running
+
+- WatchdogPollHiggsfieldJob
+  - roda periodicamente (documentar no README como agendar)
+  - pega jobs Higgsfield em submitted/running sem update há X min
+  - chama GET status no Higgsfield e atualiza
+  - usar backoff e limitar quantidade por execução (ex: 50 por run)
+
+- ExpireGenerationsJob
+  - roda periodicamente
+  - pega generations completed com expires_at <= now e status != expired
+  - limpa result_urls, marca status=expired, expired_at=now
+
+SERVICES (clients HTTP)
+- Criar app/services/wavespeed_client.rb e app/services/higgsfield_client.rb
+- Usar Faraday (ou Net::HTTP) com timeouts curtos e tratamento de erros.
+- URLs e endpoints devem vir de ENV:
+  WAVESPEED_BASE_URL
+  HIGGSFIELD_BASE_URL
+- Se endpoints exatos não forem conhecidos, criar métodos com paths configuráveis por ENV:
+  WAVESPEED_SUBMIT_PATH
+  HIGGSFIELD_GENERATE_PATH
+  HIGGSFIELD_TRAIN_PATH
+  HIGGSFIELD_POLL_PATH_TEMPLATE (ex: "/v1/generations/%{id}")
+Mas o código deve ser funcional, não pseudo: implementar chamadas reais com essas ENVs.
+
+SEGURANÇA (sem dívidas futuras)
+- Comparação de assinatura com secure_compare (tempo constante).
+- Nunca logar secrets.
+- Validar tamanho máximo do body no webhook (rack) e retornar 413 se exceder.
+- Idempotência obrigatória em POST /generations e /avatar_trainings.
+
+ENTREGA DO CÓDIGO
+- Gerar código completo: Gemfile, config, initializers, migrations, models, controllers, jobs, services, rotas, e README.
+- Incluir exemplos curl para:
+  - criar generation
+  - consultar status
+  - simular webhook (com nota de como assinar localmente)
+- Incluir scripts de execução no README:
+  - bundle install
+  - rails db:create db:migrate
+  - rails s -p 3000
+  - iniciar worker Solid Queue (com comando correto)
+- Não usar pseudo-código. Se algo depender de ENV, documentar claramente.
+- Manter tudo em /v1 e pronto para evoluir sem breaking changes.
+
+Agora gere o projeto completo.

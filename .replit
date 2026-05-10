@@ -1,0 +1,78 @@
+modules = ["nodejs-24", "python-3.11", "ruby-3.2"]
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "API Server"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "API Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd /home/runner/workspace/backend && PORT=8080 bundle exec rails server -b 0.0.0.0"
+waitForPort = 8080
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=19902 BASE_PATH=/ pnpm --filter @workspace/area69 run dev"
+waitForPort = 19902
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[agent]
+stack = "BEST_EFFORT_FALLBACK"
+expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
+
+[[ports]]
+localPort = 8080
+externalPort = 80
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 19902
+externalPort = 3000
+
+[nix]
+channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+JWT_SECRET = "9fb16102434c56a4322e039156e3d3434b15e744167ada79cadf6b1c4d58cb8f2655bb7b991e6b2798e0d5a929ceecd31a48bd53f374e96970810176ba359ec0"
+CREDITS_SECRET = "b18f627ec7c18464042a40b5b5075686062bfd7a7752628702a6ef5c76118741"

@@ -1,0 +1,283 @@
+Abaixo vai um starter pronto (Next.js 15 App Router) pra você criar uma landing page curtinha, mas com visual de “colagem editorial” (papel, polaroid, fita, objetos flutuando), com CTA forte “CRIE SUA PRÓPRIA MODELO ULTRA‑REALISTA” e botões pra Login/Cadastro levando pro seu Clerk.
+A ideia é: você só troca as imagens em /public/landing/* e ajusta textos.
+1) Arquivos (coloque assim)
+
+apps/web/
+  app/
+    page.tsx
+  components/
+    landing/
+      CollageHero.tsx
+  app/globals.css
+  public/
+    landing/
+      hero-1.jpg
+      hero-2.jpg
+      hero-3.jpg
+      sticker-star.png
+      sticker-tape.png
+      object-camera.png
+      object-shell.png
+Você pode começar usando placeholders e ir refinando.
+2) app/page.tsx (homepage)
+
+// apps/web/app/page.tsx
+import CollageHero from "@/components/landing/CollageHero";
+
+export default function HomePage() {
+  return (
+    <main className="min-h-dvh bg-[#fbfaf7] text-neutral-900">
+      <CollageHero />
+    </main>
+  );
+}
+
+3) components/landing/CollageHero.tsx (o “estilo colagem”)
+
+// apps/web/components/landing/CollageHero.tsx
+import Image from "next/image";
+import Link from "next/link";
+
+export default function CollageHero() {
+  return (
+    <div className="relative overflow-hidden">
+      {/* grid / papel de fundo */}
+      <div className="pointer-events-none absolute inset-0 opacity-[0.18]">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              "linear-gradient(to right, rgba(0,0,0,0.09) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.09) 1px, transparent 1px)",
+            backgroundSize: "64px 64px",
+          }}
+        />
+      </div>
+
+      <header className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-neutral-900" />
+          <div className="leading-tight">
+            <div className="text-sm font-semibold tracking-wide">AREA 69</div>
+            <div className="text-xs text-neutral-600">AI Models Studio</div>
+          </div>
+        </div>
+
+        <nav className="flex items-center gap-2">
+          <Link
+            href="/sign-in"
+            className="rounded-full px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-900 hover:text-white transition"
+          >
+            Entrar
+          </Link>
+          <Link
+            href="/sign-up"
+            className="rounded-full bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800 transition"
+          >
+            Criar conta
+          </Link>
+        </nav>
+      </header>
+
+      <section className="relative mx-auto grid max-w-6xl grid-cols-1 gap-10 px-6 pb-16 pt-6 lg:grid-cols-2 lg:items-center lg:pb-24">
+        {/* LEFT: Copy */}
+        <div className="relative">
+          <div className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white/80 px-4 py-2 text-xs font-semibold text-neutral-700 shadow-sm backdrop-blur">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+            Geração de imagem/vídeo + Avatar consistente
+          </div>
+
+          <h1 className="mt-6 text-balance text-4xl font-black tracking-tight sm:text-5xl">
+            CRIE SUA PRÓPRIA <span className="underline decoration-[6px] decoration-yellow-300">MODELO</span>{" "}
+            ULTRA‑REALISTA
+          </h1>
+
+          <p className="mt-4 max-w-xl text-pretty text-base leading-relaxed text-neutral-700 sm:text-lg">
+            Treine um avatar consistente com suas fotos e gere imagens e vídeos com qualidade editorial.
+            Sem complicação: você cria, escolhe o estilo e recebe o resultado em minutos.
+          </p>
+
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Link
+              href="/sign-up"
+              className="inline-flex items-center justify-center rounded-full bg-neutral-900 px-6 py-3 text-sm font-semibold text-white hover:bg-neutral-800 transition"
+            >
+              Começar agora
+            </Link>
+            <Link
+              href="/sign-in"
+              className="inline-flex items-center justify-center rounded-full border border-neutral-200 bg-white px-6 py-3 text-sm font-semibold text-neutral-900 hover:bg-neutral-50 transition"
+            >
+              Já tenho conta
+            </Link>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-2 text-xs text-neutral-600">
+            <Pill>Wavespeed (Imagem/Vídeo)</Pill>
+            <Pill>Higgsfield (Soul ID / Character)</Pill>
+            <Pill>Jobs assíncronos + webhooks</Pill>
+            <Pill>Histórico com expiração</Pill>
+          </div>
+
+          {/* nota pequena estilo “revista” */}
+          <div className="mt-8 max-w-xl rounded-2xl border border-neutral-200 bg-white/80 p-4 text-sm text-neutral-700 shadow-sm backdrop-blur">
+            <div className="font-semibold">Dica pro resultado ficar “high-end”</div>
+            <div className="mt-1 text-neutral-600">
+              Use 20+ fotos variadas (luz natural, ângulos diferentes, sem filtros pesados). O avatar fica mais consistente.
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT: Collage */}
+        <div className="relative mx-auto h-[520px] w-full max-w-[560px] lg:h-[640px]">
+          {/* “paper board” */}
+          <div className="absolute inset-0 rounded-[28px] bg-white shadow-[0_18px_60px_rgba(0,0,0,0.12)] ring-1 ring-neutral-200" />
+
+          {/* polaroid 1 */}
+          <Polaroid className="left-8 top-10 rotate-[-7deg]">
+            <Image
+              src="/landing/hero-1.jpg"
+              alt="Foto estilo editorial"
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 320px, 360px"
+              priority
+            />
+            <Caption>editorial beach set</Caption>
+          </Polaroid>
+
+          {/* polaroid 2 */}
+          <Polaroid className="right-10 top-24 rotate-[8deg]">
+            <Image
+              src="/landing/hero-2.jpg"
+              alt="Foto estilo editorial"
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 300px, 340px"
+            />
+            <Caption>consistent face · ultra realistic</Caption>
+          </Polaroid>
+
+          {/* mini shot */}
+          <div className="absolute bottom-10 left-10 h-40 w-56 rotate-[-4deg] rounded-2xl border border-neutral-200 bg-white p-3 shadow-lg">
+            <div className="relative h-full w-full overflow-hidden rounded-xl">
+              <Image
+                src="/landing/hero-3.jpg"
+                alt="Miniatura"
+                fill
+                className="object-cover"
+                sizes="240px"
+              />
+            </div>
+            <div className="mt-2 text-[11px] font-semibold tracking-wide text-neutral-700">
+              “GLAM MODE” READY
+            </div>
+          </div>
+
+          {/* stickers/objects */}
+          <Sticker
+            className="right-6 top-6 rotate-[10deg]"
+            src="/landing/object-camera.png"
+            alt="Objeto camera"
+            w={140}
+            h={110}
+          />
+          <Sticker
+            className="right-16 bottom-20 rotate-[-6deg]"
+            src="/landing/object-shell.png"
+            alt="Objeto concha"
+            w={120}
+            h={120}
+          />
+          <Sticker
+            className="left-12 bottom-44 rotate-[12deg]"
+            src="/landing/sticker-tape.png"
+            alt="Sticker fita"
+            w={170}
+            h={70}
+          />
+          <Sticker
+            className="left-[45%] top-8 rotate-[-10deg]"
+            src="/landing/sticker-star.png"
+            alt="Sticker estrela"
+            w={76}
+            h={76}
+          />
+
+          {/* label */}
+          <div className="absolute left-10 top-[62%] z-20 rotate-[-6deg] rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white shadow-lg">
+            NEW · AI MODEL STUDIO
+          </div>
+        </div>
+      </section>
+
+      <footer className="mx-auto max-w-6xl px-6 pb-10 text-xs text-neutral-500">
+        © {new Date().getFullYear()} AREA 69 — Todos os direitos reservados.
+      </footer>
+    </div>
+  );
+}
+
+function Pill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-full border border-neutral-200 bg-white px-3 py-1 font-semibold">
+      {children}
+    </span>
+  );
+}
+
+function Polaroid({ className, children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <div
+      className={[
+        "absolute z-10 h-64 w-72 rounded-3xl bg-white p-3 shadow-xl ring-1 ring-neutral-200",
+        className ?? "",
+      ].join(" ")}
+    >
+      <div className="relative h-[190px] w-full overflow-hidden rounded-2xl bg-neutral-100">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Caption({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mt-3 text-[11px] font-semibold uppercase tracking-widest text-neutral-700">
+      {children}
+    </div>
+  );
+}
+
+function Sticker({
+  className,
+  src,
+  alt,
+  w,
+  h,
+}: {
+  className?: string;
+  src: string;
+  alt: string;
+  w: number;
+  h: number;
+}) {
+  return (
+    <div className={["absolute z-20 drop-shadow-[0_18px_30px_rgba(0,0,0,0.18)]", className ?? ""].join(" ")}>
+      <Image src={src} alt={alt} width={w} height={h} />
+    </div>
+  );
+}
+
+4) Tailwind (se você já usa)
+Esse código assume Tailwind. Se você não usa Tailwind ainda, me diga que eu te mando a versão com CSS Modules (sem Tailwind).
+5) Onde colocar os links de login/cadastro
+Eu apontei para:
+• /sign-in
+• /sign-up
+Que é o padrão do Clerk quando você cria rotas no App Router. Se seus caminhos forem diferentes (ex.: /auth/sign-in), troque os href.
+6) Como “bater” exatamente o estilo da colagem da referência
+Pra ficar idêntico (nível editorial), use este checklist:
+• 3–4 “polaroids” com border + sombra e rotação leve
+• 2–3 “objects/stickers” PNG com fundo transparente (camera, concha, fita, etc.)
+• fundo com grid suave
+• tipografia forte (headline em black), texto pequeno “magazine labels”

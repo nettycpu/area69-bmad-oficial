@@ -1,0 +1,25 @@
+kind = "api"
+previewPath = "/api"
+title = "API Server"
+version = "1.0.0"
+id = "3B4_FFSkEVBkAeYMFRJ2e"
+
+[[services]]
+localPort = 8080
+name = "API Server"
+paths = ["/api"]
+
+[services.development]
+run = "cd /home/runner/workspace/backend && PORT=8080 bundle exec rails server -b 0.0.0.0"
+
+[services.production]
+
+[services.production.run]
+args = ["bash", "-c", "cd /home/runner/workspace/backend && bundle exec rails server -b 0.0.0.0"]
+
+[services.production.run.env]
+PORT = "8080"
+RAILS_ENV = "production"
+
+[services.production.health.startup]
+path = "/api/healthz"

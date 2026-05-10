@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+  <rect width="400" height="400" fill="#f0eeec"/>
+  <rect x="160" y="140" width="80" height="70" rx="4" fill="#d0ccc8"/>
+  <circle cx="175" cy="158" r="8" fill="#b8b4b0"/>
+  <path d="M160 196 L185 170 L210 188 L230 165 L240 196Z" fill="#b8b4b0"/>
+  <text x="200" y="248" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#a0a0a0" font-weight="600" letter-spacing="2">SEM IMAGEM</text>
+</svg>
