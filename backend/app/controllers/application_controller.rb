@@ -21,11 +21,17 @@ class ApplicationController < ActionController::API
   end
 
   def jwt_secret
-    ENV.fetch("JWT_SECRET") { Rails.application.secret_key_base }
+    if Rails.env.production?
+      secret = ENV["JWT_SECRET"]
+      raise "JWT_SECRET nao configurado em production!" if secret.blank?
+      secret
+    else
+      ENV.fetch("JWT_SECRET") { Rails.application.secret_key_base }
+    end
   end
 
   def render_unauthorized
-    render json: { error: "Unauthorized" }, status: :unauthorized
+    render json: { error: "Sessao expirada. Faca login novamente." }, status: :unauthorized
   end
 
   def render_error(message, status = :unprocessable_entity)

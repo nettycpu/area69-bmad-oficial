@@ -8,6 +8,7 @@ gem "jwt", "~> 2.9"
 gem "rack-cors"
 gem "stripe", "~> 12.0"
 gem "aws-sdk-s3", "~> 1.0"
+gem "rack-attack"
 gem "tzinfo-data", platforms: %i[ windows jruby ]
 gem "bootsnap", require: false
 

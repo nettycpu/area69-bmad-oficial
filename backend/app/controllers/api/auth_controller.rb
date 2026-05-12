@@ -3,7 +3,14 @@ module Api
     skip_before_action :authenticate_request
 
     def register
-      user = User.new(register_params)
+      normalized = register_params
+      normalized[:email] = normalized[:email]&.downcase&.strip
+
+      if normalized[:password].to_s.length < 8
+        return render_error("A senha deve ter no minimo 8 caracteres")
+      end
+
+      user = User.new(normalized)
 
       unless user.save
         return render_error(user.errors.full_messages.join(", "))
@@ -13,10 +20,11 @@ module Api
     end
 
     def login
-      user = User.find_by(email: login_params[:email]&.downcase)
+      email = login_params[:email]&.downcase&.strip
+      user  = User.find_by(email: email)
 
       unless user&.authenticate(login_params[:password])
-        return render_error("Invalid email or password", :unauthorized)
+        return render_error("Email ou senha invalidos", :unauthorized)
       end
 
       render json: build_auth_response(user)

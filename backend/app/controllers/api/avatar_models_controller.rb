@@ -38,11 +38,11 @@ module Api
     end
 
     def model_params
-      params.require(:avatar_model).permit(:name, :style, :cover, :description, :status, :soul_id)
+      params.require(:avatar_model).permit(:name, :style, :description)
     end
 
     def update_params
-      params.require(:avatar_model).permit(:name, :status, :cover, :description, :images_generated, :videos_generated, :soul_id, :higgsfield_request_id, :request_id)
+      params.require(:avatar_model).permit(:name, :description, :style)
     end
   end
 end

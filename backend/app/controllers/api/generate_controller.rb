@@ -5,6 +5,14 @@ require "securerandom"
 
 module Api
   class GenerateController < ApplicationController
+    rescue_from PromptSafetyService::SafetyError do |e|
+      render json: { error: e.message }, status: :unprocessable_entity
+    end
+
+    rescue_from UploadValidator::ValidationError do |e|
+      render json: { error: e.message }, status: :unprocessable_entity
+    end
+
     WAVESPEED_API_BASE = "https://api.wavespeed.ai/api/v3"
     QWEN_MODEL         = "wavespeed-ai/qwen-image-2.0-pro/edit"
     SEEDANCE_MODEL     = "bytedance/seedance-v1.5-pro/image-to-video"
@@ -48,6 +56,7 @@ module Api
       return render_error("Prompt é obrigatório") if prompt.blank?
       return render_error("Imagem de referência é obrigatória") if images.empty?
       return render_error("Máximo de 6 imagens de referência") if images.size > 6
+      PromptSafetyService.check!(prompt)
 
       size = SIZE_MAP[[aspect, res]] || "1024*1024"
 
@@ -102,26 +111,33 @@ module Api
     end
 
     def image_status
-      api_key = ENV["WAVESPEED_API_KEY"]
-      return render_error("Serviço de geração não configurado", :service_unavailable) unless api_key.present?
-
       job = find_job(params[:id])
       return render_error("Job não encontrado", :not_found) unless job
+      return status_response(job) if terminal_status_response(job)
 
-      body, status = wavespeed_get("#{WAVESPEED_API_BASE}/predictions/#{job.provider_request_id}/result", api_key)
+      api_key = ENV["WAVESPEED_API_KEY"]
+      return render_error("Serviço de geração não configurado", :service_unavailable) unless api_key.present?
+      return status_response(job) if job.provider_request_id.blank?
 
-      if status == 200
+      body, status_code = wavespeed_get("#{WAVESPEED_API_BASE}/predictions/#{job.provider_request_id}/result", api_key)
+
+      case status_code
+      when 200
         data = body["data"] || body
         process_completed(job, data)
+      when 404, 429, 502, 503
+        Rails.logger.warn("[WaveSpeed] Status #{status_code} transitorio para job #{job.id}")
+        processing_response(job, status_code)
       else
-        render json: {
-          status: job.status,
-          outputs: job.output_urls,
-          credits: current_user.reload.credits
-        }
+        if body["status"].to_s == "failed" || body["error"].to_s.present?
+          process_failed(job, body["error"] || body["message"] || "Provider returned error")
+        else
+          processing_response(job, status_code)
+        end
       end
     rescue => e
-      render_error("Erro ao verificar status: #{e.message}", :internal_server_error)
+      Rails.logger.error("[WaveSpeed] Erro inesperado image_status: #{e.class} — #{e.message[0..200]}")
+      processing_response(job, nil)
     end
 
     # ─────────────────────────── Seedance Video ─────────────────────────────
@@ -141,6 +157,7 @@ module Api
 
       return render_error("Prompt é obrigatório") if prompt.blank?
       return render_error("Imagem de referência é obrigatória") if image.blank?
+      PromptSafetyService.check!(prompt)
 
       job = current_user.generation_jobs.create!(
         provider: "wavespeed",
@@ -198,26 +215,33 @@ module Api
     end
 
     def video_status
-      api_key = ENV["WAVESPEED_API_KEY"]
-      return render_error("Serviço de geração não configurado", :service_unavailable) unless api_key.present?
-
       job = find_job(params[:id])
       return render_error("Job não encontrado", :not_found) unless job
+      return status_response(job) if terminal_status_response(job)
 
-      body, status = wavespeed_get("#{WAVESPEED_API_BASE}/predictions/#{job.provider_request_id}/result", api_key)
+      api_key = ENV["WAVESPEED_API_KEY"]
+      return render_error("Serviço de geração não configurado", :service_unavailable) unless api_key.present?
+      return status_response(job) if job.provider_request_id.blank?
 
-      if status == 200
+      body, status_code = wavespeed_get("#{WAVESPEED_API_BASE}/predictions/#{job.provider_request_id}/result", api_key)
+
+      case status_code
+      when 200
         data = body["data"] || body
         process_completed(job, data)
+      when 404, 429, 502, 503
+        Rails.logger.warn("[WaveSpeed] Status #{status_code} transitorio para job #{job.id}")
+        processing_response(job, status_code)
       else
-        render json: {
-          status: job.status,
-          outputs: job.output_urls,
-          credits: current_user.reload.credits
-        }
+        if body["status"].to_s == "failed" || body["error"].to_s.present?
+          process_failed(job, body["error"] || body["message"] || "Provider returned error")
+        else
+          processing_response(job, status_code)
+        end
       end
     rescue => e
-      render_error("Erro ao verificar status: #{e.message}", :internal_server_error)
+      Rails.logger.error("[WaveSpeed] Erro inesperado video_status: #{e.class} — #{e.message[0..200]}")
+      processing_response(job, nil)
     end
 
     # ─────────────────────────── Higgsfield Soul Character ──────────────────
@@ -240,6 +264,7 @@ module Api
 
       return render_error("Prompt é obrigatório") if prompt.blank?
       return render_error("Máximo de 6 imagens de referência") if images.size > 6
+      PromptSafetyService.check!(prompt)
 
       # Upload imagens base64 para R2
       if images.any? { |img| img.start_with?("data:") }
@@ -318,6 +343,8 @@ module Api
     def higgsfield_status
       job = find_job(params[:id])
       return render_error("Job não encontrado", :not_found) unless job
+      return status_response(job) if terminal_status_response(job)
+      return status_response(job) if job.provider_request_id.blank?
 
       result = HiggsfieldService.new.generation_status(job.provider_request_id)
 
@@ -329,64 +356,109 @@ module Api
         render json: { status: result[:status], outputs: job.output_urls, credits: current_user.reload.credits }
       end
     rescue HiggsfieldService::APIError => e
-      render_error(e.message, :bad_gateway)
+      Rails.logger.warn("[Higgsfield] APIError transitorio: #{e.message[0..200]}")
+      render json: { status: job.status, outputs: job.output_urls, credits: current_user.reload.credits }
     rescue HiggsfieldService::TimeoutError => e
-      render_error(e.message, :gateway_timeout)
+      Rails.logger.warn("[Higgsfield] Timeout transitorio: #{e.message[0..200]}")
+      render json: { status: job.status, outputs: job.output_urls, credits: current_user.reload.credits }
     end
 
     private
 
     def find_job(id_or_request_id)
-      job = current_user.generation_jobs.find_by(id: id_or_request_id)
-      job ||= current_user.generation_jobs.find_by(provider_request_id: id_or_request_id)
-      job
+      raw = id_or_request_id.to_s
+
+      # So consultar por bigint id se for numero puro
+      if raw.match?(/\A\d+\z/)
+        job = current_user.generation_jobs.find_by(id: raw.to_i)
+        return job if job
+      end
+
+      # Fallback: provider_request_id (UUID string)
+      current_user.generation_jobs.find_by(provider_request_id: raw)
+    end
+
+    def terminal_status_response(job)
+      job.status == "completed" || job.status == "failed"
+    end
+
+    def status_response(job)
+      render json: {
+        status: job.status,
+        outputs: job.output_urls,
+        error: job.error_message,
+        credits: current_user.reload.credits
+      }
+    end
+
+    def processing_response(job, _status_code = nil)
+      render json: {
+        status: "processing",
+        outputs: job.output_urls,
+        credits: current_user.reload.credits
+      }
     end
 
     def process_completed(job, data)
       outputs = extract_outputs(data)
 
-      job.update!(
-        status: "completed",
-        output_urls: outputs,
-        completed_at: Time.current
-      )
+      if outputs.empty?
+        render json: { status: "processing", outputs: [], credits: current_user.reload.credits }
+        return
+      end
 
-      # Criar Generation exatamente uma vez
-      if outputs.any? && !job.metadata.dig("generation_created")
-        outputs.each do |url|
-          current_user.generations.find_or_create_by!(
-            model_name: job.avatar_model&.name || job.provider_model,
-            generation_type: job.generation_type,
-            prompt: job.prompt,
-            url: url,
-            generation_job_id: job.id,
-            thumbnail_url: job.thumbnail_url,
-            provider: job.provider,
-            provider_model: job.provider_model,
-            aspect_ratio: job.aspect_ratio,
-            resolution: job.resolution,
-            duration: job.duration
-          )
+      already_done = false
+
+      job.with_lock do
+        if job.status == "completed" && job.output_urls.any?
+          already_done = true
+          next # sai do with_lock sem duplicar
         end
-        job.update!(metadata: job.metadata.merge("generation_created" => true))
 
-        # Incrementar contadores de user (apenas uma vez)
-        unless job.metadata.dig("counters_updated")
+        job.update!(
+          status: "completed",
+          output_urls: outputs,
+          completed_at: Time.current
+        )
+
+        metadata = job.metadata || {}
+
+        unless metadata["generation_created"]
+          outputs.each do |url|
+            current_user.generations.find_or_create_by!(
+              generation_job_id: job.id, url: url
+            ) do |gen|
+              gen.model_name = job.avatar_model&.name || job.provider_model
+              gen.generation_type = job.generation_type
+              gen.prompt = job.prompt
+              gen.thumbnail_url = job.thumbnail_url
+              gen.provider = job.provider
+              gen.provider_model = job.provider_model
+              gen.aspect_ratio = job.aspect_ratio
+              gen.resolution = job.resolution
+              gen.duration = job.duration
+            end
+          end
+          metadata["generation_created"] = true
+        end
+
+        unless metadata["counters_updated"]
           column = job.generation_type == "image" ? :images_generated : :videos_generated
           current_user.increment!(column, outputs.size)
-          job.update!(metadata: job.metadata.merge("counters_updated" => true))
+          metadata["counters_updated"] = true
         end
 
-        # Incrementar contador do avatar model (apenas Higgsfield image, uma vez)
-        if job.avatar_model.present? && job.generation_type == "image" && !job.metadata.dig("avatar_model_counter_updated")
+        if job.avatar_model.present? && job.generation_type == "image" && !metadata["avatar_model_counter_updated"]
           job.avatar_model.increment!(:images_generated, outputs.size)
-          job.update!(metadata: job.metadata.merge("avatar_model_counter_updated" => true))
+          metadata["avatar_model_counter_updated"] = true
         end
+
+        job.update!(metadata: metadata)
       end
 
       render json: {
         status: "completed",
-        outputs: outputs,
+        outputs: already_done ? job.output_urls : outputs,
         credits: current_user.reload.credits
       }
     end
@@ -490,6 +562,7 @@ module Api
     end
 
     def upload_images_to_r2(model, images)
+      UploadValidator.validate_data_urls(images, context: :reference)
       public_host = ENV.fetch("R2_PUBLIC_URL_HOST")
       bucket_name = ENV.fetch("R2_BUCKET")
       raise "R2_PUBLIC_URL_HOST nao configurado" if public_host.blank?

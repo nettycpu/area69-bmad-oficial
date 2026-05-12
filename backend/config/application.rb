@@ -18,6 +18,10 @@ module Area69
                               ENV["SESSION_SECRET"] ||
                               SecureRandom.hex(64)
 
+    # JWT middleware must run before Rack::Attack so throttling can use req.env["jwt.user_id"]
+    require_relative "../app/middleware/jwt_auth_middleware"
+    config.middleware.insert_before 0, JwtAuthMiddleware
+
     config.middleware.insert_before 0, Rack::Cors do
       allow do
         origins(

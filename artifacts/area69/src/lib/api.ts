@@ -103,9 +103,7 @@ export const api = {
     create: (data: {
       name: string;
       style?: string;
-      cover?: string | null;
       description?: string | null;
-      status?: string;
     }) =>
       request<{ model: ApiModel }>("/avatar_models", {
         method: "POST",
@@ -115,11 +113,8 @@ export const api = {
       id: string,
       data: {
         name?: string;
-        status?: string;
-        cover?: string | null;
         description?: string | null;
-        images_generated?: number;
-        videos_generated?: number;
+        style?: string;
       },
     ) =>
       request<{ model: ApiModel }>(`/avatar_models/${id}`, {
@@ -131,6 +126,7 @@ export const api = {
   },
   generations: {
     list: () => request<{ generations: ApiGeneration[] }>("/generations"),
+    /** Apenas para uso interno do backend. Nao chamar do frontend. */
     create: (data: {
       model_name: string;
       type: string;
@@ -149,16 +145,12 @@ export const api = {
   },
   credits: {
     balance: () => request<{ balance: number }>("/credits"),
+    /** APENAS DEV/ADMIN. Requer CREDITS_SECRET no backend. */
     add: (amount: number, source?: string, secret?: string) =>
       request<{ balance: number }>("/credits/add", {
         method: "POST",
         body: JSON.stringify({ amount, source }),
         headers: secret ? { "X-Credits-Secret": secret } : {},
-      }),
-    spend: (amount: number) =>
-      request<{ balance: number }>("/credits/spend", {
-        method: "POST",
-        body: JSON.stringify({ amount }),
       }),
   },
   generate: {

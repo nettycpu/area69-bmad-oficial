@@ -5,15 +5,15 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useStore } from "@/lib/useStore";
 import { useI18n } from "@/lib/I18nContext";
 import { api, ApiError } from "@/lib/api";
-import type { Generation } from "@/lib/store";
 
 const MAX_REF_FILE_BYTES = 10 * 1024 * 1024;
 const COST_PER_IMAGE = 5;
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_ATTEMPTS = 60;
+const MAX_CONSECUTIVE_ERRORS = 5;
 
 export default function GenerateHiggsfield() {
-  const { state, addGeneration, updateCredits } = useStore();
+  const { state, updateCredits } = useStore();
   const { t } = useI18n();
   const [location] = useLocation();
 
@@ -50,6 +50,7 @@ export default function GenerateHiggsfield() {
   const [lastPrompt, setLastPrompt] = useState("");
   const [genError, setGenError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const consecutiveErrorsRef = useRef(0);
 
   const selectedSoulId =
     trainedModels.find((m) => m.id === selectedModel)?.soulId ?? null;
@@ -84,17 +85,24 @@ export default function GenerateHiggsfield() {
     }
   }
 
-  async function pollStatus(predictionId: string, attempt: number) {
+  function getBackoff(attempt: number): number {
+    const backoffs = [POLL_INTERVAL_MS, 5000, 10000, 15000];
+    return backoffs[Math.min(attempt, backoffs.length - 1)];
+  }
+
+  async function pollStatus(pollId: string, attempt: number, _consecutiveErrors: number) {
     if (attempt >= MAX_POLL_ATTEMPTS) {
       stopPolling();
       setGenerating(false);
-      setGenError("Tempo esgotado. A geração demorou mais que o esperado.");
+      setGenError("Tempo esgotado. A geracao demorou mais que o esperado. Verifique o Historico em alguns instantes.");
       refreshCredits();
       return;
     }
 
     try {
-      const res = await api.generate.higgsfieldStatus(predictionId);
+      const res = await api.generate.higgsfieldStatus(pollId);
+
+      consecutiveErrorsRef.current = 0;
 
       if (res.credits !== undefined) updateCredits(res.credits);
 
@@ -103,41 +111,39 @@ export default function GenerateHiggsfield() {
         setResults(res.outputs);
         setGenerating(false);
         setGenError(null);
-
-        res.outputs.forEach((url) => {
-          const gen: Generation = {
-            id: crypto.randomUUID(),
-            modelId: selectedModel || "",
-            modelName: "Higgsfield Soul Character",
-            url,
-            type: "image",
-            prompt: lastPrompt,
-            createdAt: Date.now(),
-          };
-          addGeneration(gen);
-        });
+        // Backend cria Generation no process_completed
       } else if (res.status === "failed") {
         stopPolling();
         setGenerating(false);
         const errMsg = res.error ?? "";
         if (errMsg.toLowerCase().includes("insufficient") || errMsg.toLowerCase().includes("top up") || errMsg.toLowerCase().includes("balance")) {
-          setGenError("Serviço de geração temporariamente indisponível: saldo do provedor insuficiente.");
+          setGenError("Servico de geracao temporariamente indisponivel: saldo do provedor insuficiente.");
         } else {
-          setGenError(errMsg || "A geração falhou. Seus créditos foram devolvidos.");
+          setGenError(errMsg || "A geracao falhou.");
         }
         if (res.credits === undefined) refreshCredits();
       } else {
         const statusLabel = res.status === "processing" ? "Processando" : "Aguardando";
         setGeneratingStatus(`${statusLabel}...`);
         pollRef.current = setTimeout(
-          () => pollStatus(predictionId, attempt + 1),
+          () => pollStatus(pollId, attempt + 1, 0),
           POLL_INTERVAL_MS,
         );
       }
     } catch {
+      consecutiveErrorsRef.current += 1;
+      if (consecutiveErrorsRef.current >= MAX_CONSECUTIVE_ERRORS) {
+        stopPolling();
+        setGenerating(false);
+        setGenError("A geracao foi enviada, mas nao conseguimos sincronizar o status. Verifique o Historico em alguns instantes.");
+        refreshCredits();
+        return;
+      }
+      const backoff = getBackoff(consecutiveErrorsRef.current);
+      setGeneratingStatus(`Sincronizando... (tentativa ${consecutiveErrorsRef.current + 1})`);
       pollRef.current = setTimeout(
-        () => pollStatus(predictionId, attempt + 1),
-        POLL_INTERVAL_MS,
+        () => pollStatus(pollId, attempt + 1, consecutiveErrorsRef.current),
+        backoff,
       );
     }
   }
@@ -176,8 +182,9 @@ export default function GenerateHiggsfield() {
       if (res.credits !== undefined) updateCredits(res.credits);
 
       setGeneratingStatus("Gerando...");
+      const pollId = String(res.job_id ?? res.prediction_id);
       pollRef.current = setTimeout(
-        () => pollStatus(res.prediction_id, 0),
+        () => pollStatus(pollId, 0, 0),
         POLL_INTERVAL_MS,
       );
     } catch (err: unknown) {
@@ -205,9 +212,9 @@ export default function GenerateHiggsfield() {
       else if (msg.toLowerCase().includes("insufficient") || msg.toLowerCase().includes("saldo")) {
         setGenError("Serviço de geração temporariamente indisponível: saldo do provedor insuficiente.");
       }
-      // Outros erros com reembolso
+      // Outros erros
       else {
-        setGenError(msg + " — seus créditos foram devolvidos.");
+        setGenError(msg);
       }
     }
   }

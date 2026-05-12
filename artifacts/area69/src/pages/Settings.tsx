@@ -254,7 +254,7 @@ export default function Settings() {
           </div>
         </Section>
 
-        {import.meta.env.VITE_ENABLE_DEV_CREDITS === "true" && (
+        {import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEV_CREDITS === "true" && (
         <Section title={t("settings.buyCredits")}>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
             {CREDIT_PACKS.map((pack) => {

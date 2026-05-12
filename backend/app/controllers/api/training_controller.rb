@@ -2,6 +2,14 @@ require "aws-sdk-s3"
 
 module Api
   class TrainingController < ApplicationController
+    rescue_from PromptSafetyService::SafetyError do |e|
+      render json: { error: e.message }, status: :unprocessable_entity
+    end
+
+    rescue_from UploadValidator::ValidationError do |e|
+      render json: { error: e.message }, status: :unprocessable_entity
+    end
+
     TRAINING_COST = Pricing::HIGGSFIELD_TRAINING
 
     # POST /api/training/soul_id
@@ -12,6 +20,7 @@ module Api
       return render_error("Nome é obrigatório") if name.blank?
       return render_error("Envie pelo menos 10 fotos") if images.size < 10
       return render_error("Máximo de 30 fotos") if images.size > 30
+      PromptSafetyService.check!(name)
 
       # Upload imagens para R2 (antes de salvar — não persistir base64 no banco)
       input_urls = upload_images_to_r2(name, images)
@@ -131,6 +140,7 @@ module Api
     end
 
     def upload_images_to_r2(label, image_data_urls)
+      UploadValidator.validate_data_urls(image_data_urls, context: :training)
       public_host = ENV.fetch("R2_PUBLIC_URL_HOST")
       bucket_name = ENV.fetch("R2_BUCKET")
       raise "R2_PUBLIC_URL_HOST nao configurado" if public_host.blank?

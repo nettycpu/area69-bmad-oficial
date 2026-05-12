@@ -52,10 +52,6 @@ interface StoreContextValue {
    * Faz POST /api/credits/add (requer CREDITS_SECRET no backend).
    * Prefira updateCredits(balance) vindo da resposta do backend. */
   devAddCreditsUnsafe: (amount: number) => void;
-  /** APENAS DEV/ADMIN. NAO usar em fluxo normal de geracao.
-   * Faz POST /api/credits/spend (requer CREDITS_SECRET no backend).
-   * Prefira updateCredits(balance) vindo da resposta do backend. */
-  devSpendCreditsUnsafe: (amount: number) => boolean;
   /** Fonte central de verdade: atualiza saldo com valor vindo do backend */
   updateCredits: (balance: number) => void;
   updateProfile: (patch: Partial<UserProfile>) => void;
@@ -105,7 +101,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState((prev) => ({ ...prev, models: [model, ...prev.models] }));
 
     api.models
-      .create({ name: model.name, style: "realistic", cover: model.cover, status: model.status })
+      .create({ name: model.name, style: "realistic" })
       .then((res) => {
         const realModel = mapModel(res.model);
         setState((prev) => ({
@@ -129,16 +125,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       models: prev.models.map((m) => (m.id === id ? { ...m, ...patch } : m)),
     }));
-    if (!isNaN(Number(id))) {
-      const backendPatch: Record<string, unknown> = {};
-      if (patch.status !== undefined) backendPatch.status = patch.status;
-      if (patch.imagesGenerated !== undefined) backendPatch.images_generated = patch.imagesGenerated;
-      if (patch.videosGenerated !== undefined) backendPatch.videos_generated = patch.videosGenerated;
-      if (patch.name !== undefined) backendPatch.name = patch.name;
-      if (patch.cover !== undefined) backendPatch.cover = patch.cover;
-      if (Object.keys(backendPatch).length > 0) {
-        api.models.update(id, backendPatch).catch(console.error);
-      }
+    // Apenas name é enviado ao backend — status, soulId, contadores são
+    // gerenciados exclusivamente pelo backend (treino/process_completed)
+    if (!isNaN(Number(id)) && patch.name !== undefined) {
+      api.models.update(id, { name: patch.name }).catch(console.error);
     }
   }, []);
 
@@ -170,21 +160,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // ── Credits mutations (APENAS DEV/ADMIN) ────────────────────────────────
   // Fluxo normal de geracao usa updateCredits(balance) com valor do backend
   const devAddCreditsUnsafe = useCallback((amount: number) => {
+    if (!(import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEV_CREDITS === "true")) {
+      console.warn("[StoreContext] devAddCreditsUnsafe blocked outside DEV mode");
+      return;
+    }
     const safeAmount = Math.max(0, Math.floor(amount));
     api.credits
       .add(safeAmount)
       .then((res) => setState((prev) => ({ ...prev, credits: res.balance })))
       .catch(console.error);
-  }, []);
-
-  const devSpendCreditsUnsafe = useCallback((amount: number): boolean => {
-    api.credits
-      .spend(amount)
-      .then((res) => setState((prev) => ({ ...prev, credits: res.balance })))
-      .catch(() => {
-        refreshBalance();
-      });
-    return true;
   }, []);
 
   const updateCredits = useCallback((balance: number) => {
@@ -235,7 +219,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         addGeneration,
         deleteGeneration,
         devAddCreditsUnsafe,
-        devSpendCreditsUnsafe,
         updateCredits,
         updateProfile,
         resetAccount,

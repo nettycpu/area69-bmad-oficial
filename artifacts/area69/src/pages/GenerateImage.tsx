@@ -4,7 +4,6 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useStore } from "@/lib/useStore";
 import { useI18n } from "@/lib/I18nContext";
 import { api, ApiError } from "@/lib/api";
-import type { Generation } from "@/lib/store";
 
 const RESOLUTIONS = [
   { label: "480p", value: "480p", sub: "854×480" },
@@ -33,9 +32,10 @@ const MAX_REF_FILE_BYTES = 10 * 1024 * 1024;
 const COST_PER_IMAGE = 5;
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_ATTEMPTS = 60;
+const MAX_CONSECUTIVE_ERRORS = 5;
 
 export default function GenerateImage() {
-  const { state, addGeneration, updateCredits } = useStore();
+  const { state, updateCredits } = useStore();
   const { t } = useI18n();
 
   // Qwen/WaveSpeed nao usa Soul ID — sem seletor de modelo treinado
@@ -51,6 +51,7 @@ export default function GenerateImage() {
   const [lastPrompt, setLastPrompt] = useState("");
   const [genError, setGenError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const consecutiveErrorsRef = useRef(0);
 
   const canGenerate = prompt.trim().length >= 3 && referenceImage && !generating;
   const totalCost = COST_PER_IMAGE;
@@ -72,17 +73,24 @@ export default function GenerateImage() {
     }
   }
 
-  async function pollStatus(predictionId: string, attempt: number) {
+  function getBackoff(attempt: number): number {
+    const backoffs = [POLL_INTERVAL_MS, 5000, 10000, 15000];
+    return backoffs[Math.min(attempt, backoffs.length - 1)];
+  }
+
+  async function pollStatus(pollId: string, attempt: number, consecutiveErrors: number) {
     if (attempt >= MAX_POLL_ATTEMPTS) {
       stopPolling();
       setGenerating(false);
-      setGenError("Tempo esgotado. A geração demorou mais que o esperado.");
+      setGenError("Tempo esgotado. A geração demorou mais que o esperado. Verifique o Histórico em alguns instantes.");
       refreshCredits();
       return;
     }
 
     try {
-      const res = await api.generate.imageStatus(predictionId);
+      const res = await api.generate.imageStatus(pollId);
+
+      consecutiveErrorsRef.current = 0;
 
       if (res.credits !== undefined) updateCredits(res.credits);
 
@@ -91,19 +99,7 @@ export default function GenerateImage() {
         setResults(res.outputs);
         setGenerating(false);
         setGenError(null);
-
-        res.outputs.forEach((url) => {
-          const gen: Generation = {
-            id: crypto.randomUUID(),
-            modelId: "",
-            modelName: "Qwen Image 2.0 Pro",
-            url,
-            type: "image",
-            prompt: lastPrompt,
-            createdAt: Date.now(),
-          };
-          addGeneration(gen);
-        });
+        // Backend cria Generation no process_completed — nao criar fake local
       } else if (res.status === "failed") {
         stopPolling();
         setGenerating(false);
@@ -111,21 +107,31 @@ export default function GenerateImage() {
         if (errMsg.toLowerCase().includes("insufficient") || errMsg.toLowerCase().includes("top up") || errMsg.toLowerCase().includes("balance")) {
           setGenError("Serviço de imagem temporariamente indisponível: saldo do provedor insuficiente.");
         } else {
-          setGenError(errMsg || "A geração falhou. Seus créditos foram devolvidos.");
+          setGenError(errMsg || "A geração falhou.");
         }
         if (res.credits === undefined) refreshCredits();
       } else {
         const statusLabel = res.status === "processing" ? "Processando" : "Aguardando";
         setGeneratingStatus(`${statusLabel}...`);
         pollRef.current = setTimeout(
-          () => pollStatus(predictionId, attempt + 1),
+          () => pollStatus(pollId, attempt + 1, 0),
           POLL_INTERVAL_MS,
         );
       }
     } catch {
+      consecutiveErrorsRef.current += 1;
+      if (consecutiveErrorsRef.current >= MAX_CONSECUTIVE_ERRORS) {
+        stopPolling();
+        setGenerating(false);
+        setGenError("A geração foi enviada, mas não conseguimos sincronizar o status. Verifique o Histórico em alguns instantes.");
+        refreshCredits();
+        return;
+      }
+      const backoff = getBackoff(consecutiveErrorsRef.current);
+      setGeneratingStatus(`Sincronizando... (tentativa ${consecutiveErrorsRef.current + 1})`);
       pollRef.current = setTimeout(
-        () => pollStatus(predictionId, attempt + 1),
-        POLL_INTERVAL_MS,
+        () => pollStatus(pollId, attempt + 1, consecutiveErrorsRef.current),
+        backoff,
       );
     }
   }
@@ -158,8 +164,9 @@ export default function GenerateImage() {
 
       if (res.credits !== undefined) updateCredits(res.credits);
       setGeneratingStatus("Gerando...");
+      const pollId = String(res.job_id ?? res.prediction_id);
       pollRef.current = setTimeout(
-        () => pollStatus(res.prediction_id, 0),
+        () => pollStatus(pollId, 0, 0),
         POLL_INTERVAL_MS,
       );
     } catch (err: unknown) {
@@ -176,7 +183,7 @@ export default function GenerateImage() {
       } else if (msg.toLowerCase().includes("insufficient") || msg.toLowerCase().includes("top up") || msg.toLowerCase().includes("provedor") || msg.toLowerCase().includes("saldo")) {
         setGenError("Serviço de imagem temporariamente indisponível: saldo do provedor insuficiente.");
       } else {
-        setGenError(msg + " — seus créditos foram devolvidos.");
+        setGenError(msg);
       }
     }
   }

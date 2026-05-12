@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_12_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_12_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -117,6 +117,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_000001) do
     t.text "url", null: false
     t.bigint "user_id", null: false
     t.integer "width"
+    t.index ["generation_job_id", "url"], name: "idx_generations_on_job_and_url", unique: true, where: "(generation_job_id IS NOT NULL)"
     t.index ["generation_job_id"], name: "index_generations_on_generation_job_id"
     t.index ["user_id"], name: "index_generations_on_user_id"
   end

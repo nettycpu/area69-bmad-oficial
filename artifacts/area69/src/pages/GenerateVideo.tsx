@@ -5,8 +5,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import VideoPreview from "@/components/ui/video-preview";
 import { useStore } from "@/lib/useStore";
 import { useI18n } from "@/lib/I18nContext";
-import { api } from "@/lib/api";
-import type { Generation } from "@/lib/store";
+import { api, ApiError } from "@/lib/api";
 
 const ASPECT_RATIOS = [
   { label: "21:9", value: "21:9" }, { label: "16:9", value: "16:9" },
@@ -32,9 +31,10 @@ const MAX_REF_FILE_BYTES = 10 * 1024 * 1024;
 const COST = 30;
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLL_ATTEMPTS = 120;
+const MAX_CONSECUTIVE_ERRORS = 5;
 
 export default function GenerateVideo() {
-  const { state, addGeneration, updateCredits } = useStore();
+  const { state, updateCredits } = useStore();
   const { t } = useI18n();
 
   const [prompt, setPrompt] = useState("");
@@ -54,6 +54,7 @@ export default function GenerateVideo() {
 
   const refInputRef = React.useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const consecutiveErrorsRef = useRef(0);
 
   const canGenerate = prompt.trim().length >= 3 && referenceImage && !generating;
 
@@ -74,17 +75,24 @@ export default function GenerateVideo() {
     }
   }
 
-  async function pollStatus(predictionId: string, attempt: number) {
+  function getBackoff(attempt: number): number {
+    const backoffs = [POLL_INTERVAL_MS, 5000, 10000, 15000];
+    return backoffs[Math.min(attempt, backoffs.length - 1)];
+  }
+
+  async function pollStatus(pollId: string, attempt: number, _consecutiveErrors: number) {
     if (attempt >= MAX_POLL_ATTEMPTS) {
       stopPolling();
       setGenerating(false);
-      setGenError("Tempo esgotado. A geração demorou mais que o esperado.");
+      setGenError("Tempo esgotado. A geração demorou mais que o esperado. Verifique o Histórico em alguns instantes.");
       syncCredits();
       return;
     }
 
     try {
-      const res = await api.generate.videoStatus(predictionId);
+      const res = await api.generate.videoStatus(pollId);
+
+      consecutiveErrorsRef.current = 0;
 
       if (res.status === "completed" && res.outputs.length > 0) {
         stopPolling();
@@ -93,35 +101,35 @@ export default function GenerateVideo() {
         setGenerating(false);
         setGenError(null);
         if (res.credits !== undefined) updateCredits(res.credits);
-
-        const gen: Generation = {
-          id: crypto.randomUUID(),
-          modelId: "",
-          modelName: "Seedance 1.5 Pro",
-          url: res.outputs[0],
-          type: "video",
-          prompt: lastPrompt,
-          createdAt: Date.now(),
-        };
-        addGeneration(gen);
+        // Backend cria Generation no process_completed
       } else if (res.status === "failed") {
         stopPolling();
         setGenerating(false);
         if (res.credits !== undefined) updateCredits(res.credits);
-        setGenError(res.error ?? "A geração falhou. Seus créditos foram devolvidos.");
+        setGenError(res.error ?? "A geração falhou.");
         syncCredits();
       } else {
         const statusLabel = res.status === "processing" ? "Processando" : "Aguardando";
         setGeneratingStatus(`${statusLabel}...`);
         pollRef.current = setTimeout(
-          () => pollStatus(predictionId, attempt + 1),
+          () => pollStatus(pollId, attempt + 1, 0),
           POLL_INTERVAL_MS,
         );
       }
     } catch {
+      consecutiveErrorsRef.current += 1;
+      if (consecutiveErrorsRef.current >= MAX_CONSECUTIVE_ERRORS) {
+        stopPolling();
+        setGenerating(false);
+        setGenError("A geração foi enviada, mas não conseguimos sincronizar o status. Verifique o Histórico em alguns instantes.");
+        syncCredits();
+        return;
+      }
+      const backoff = getBackoff(consecutiveErrorsRef.current);
+      setGeneratingStatus(`Sincronizando... (tentativa ${consecutiveErrorsRef.current + 1})`);
       pollRef.current = setTimeout(
-        () => pollStatus(predictionId, attempt + 1),
-        POLL_INTERVAL_MS,
+        () => pollStatus(pollId, attempt + 1, consecutiveErrorsRef.current),
+        backoff,
       );
     }
   }
@@ -158,18 +166,20 @@ export default function GenerateVideo() {
 
       if (res.credits !== undefined) updateCredits(res.credits);
       setGeneratingStatus("Gerando...");
+      const pollId = String(res.job_id ?? res.prediction_id);
       pollRef.current = setTimeout(
-        () => pollStatus(res.prediction_id, 0),
+        () => pollStatus(pollId, 0, 0),
         POLL_INTERVAL_MS,
       );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro ao iniciar geração";
       setGenerating(false);
-      if (err instanceof Error && "credits" in (err as any)) {
-        updateCredits((err as any).credits);
+      if (err instanceof ApiError && typeof err.data?.credits === "number") {
+        updateCredits(err.data.credits);
+      } else {
+        await syncCredits();
       }
-      setGenError(msg + " — seus créditos foram devolvidos.");
-      syncCredits();
+      setGenError(msg);
     }
   }
 

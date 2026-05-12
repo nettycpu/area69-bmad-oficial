@@ -10,7 +10,7 @@ module Api
     end
 
     # Create restrito — apenas para admin/internal ou via generation_jobs
-    # Geracoes reais são criadas pelo backend quando provider status completed
+    # Geracoes reais sao criadas pelo backend quando provider status completed
     def create
       unless internal_request?
         return render_error("Geracoes sao criadas automaticamente apos geracao", :forbidden)
@@ -46,9 +46,20 @@ module Api
     end
 
     def internal_request?
-      # Chamado pelo proprio backend ou admin com secret
+      secret = ENV["INTERNAL_SECRET"]
+
+      if secret.blank?
+        if Rails.env.production?
+          Rails.logger.error("[INTERNAL] INTERNAL_SECRET nao configurado em production!")
+          return false
+        else
+          # Dev/test: permite sem secret
+          return true
+        end
+      end
+
       request.headers["X-Internal-Secret"].present? &&
-        request.headers["X-Internal-Secret"] == ENV["INTERNAL_SECRET"]
+        request.headers["X-Internal-Secret"] == secret
     end
   end
 end
