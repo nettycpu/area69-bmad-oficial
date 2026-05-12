@@ -1,10 +1,15 @@
 class UploadValidator
   ALLOWED_MIME_TYPES = %w[image/jpeg image/png image/webp].freeze
 
+  JPEG_MAGIC         = [0xFF, 0xD8].freeze
+  PNG_MAGIC          = [0x89, 0x50, 0x4E, 0x47].freeze
+  WEBP_RIFF_MAGIC    = [0x52, 0x49, 0x46, 0x46].freeze
+  WEBP_FORMAT_MAGIC  = [0x57, 0x45, 0x42, 0x50].freeze
+
   MAGIC_BYTES = {
-    "image/jpeg" => ->(bytes) { bytes.size >= 2 && bytes[0] == 0xFF && bytes[1] == 0xD8 },
-    "image/png"  => ->(bytes) { bytes.size >= 8 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47 },
-    "image/webp" => ->(bytes) { bytes.size >= 12 && bytes[0..3].include?("RIFF") && bytes[8..11].include?("WEBP") },
+    "image/jpeg" => ->(bytes) { bytes.size >= 2 && bytes[0, 2] == JPEG_MAGIC },
+    "image/png"  => ->(bytes) { bytes.size >= 8 && bytes[0, 4] == PNG_MAGIC },
+    "image/webp" => ->(bytes) { bytes.size >= 12 && bytes[0, 4] == WEBP_RIFF_MAGIC && bytes[8, 4] == WEBP_FORMAT_MAGIC },
   }.freeze
 
   MAX_REFERENCE_SIZE = 10.megabytes
