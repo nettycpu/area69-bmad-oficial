@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import VideoPreview from "@/components/ui/video-preview";
 import { useStore } from "@/lib/useStore";
 import { useI18n } from "@/lib/I18nContext";
 import { api } from "@/lib/api";
@@ -33,11 +34,9 @@ const POLL_INTERVAL_MS = 3000;
 const MAX_POLL_ATTEMPTS = 120;
 
 export default function GenerateVideo() {
-  const { state, addGeneration, updateModel, updateCredits } = useStore();
+  const { state, addGeneration, updateCredits } = useStore();
   const { t } = useI18n();
-  const readyModels = state.models.filter((m) => m.status === "ready");
 
-  const [selectedModel, setSelectedModel] = useState<string>(readyModels[0]?.id ?? "");
   const [prompt, setPrompt] = useState("");
   const [referenceImage, setReferenceImage] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState("16:9");
@@ -49,6 +48,7 @@ export default function GenerateVideo() {
   const [generating, setGenerating] = useState(false);
   const [generatingStatus, setGeneratingStatus] = useState<string>("");
   const [resultVideo, setResultVideo] = useState<string | null>(null);
+  const [resultPoster, setResultPoster] = useState<string | null>(null);
   const [lastPrompt, setLastPrompt] = useState("");
   const [genError, setGenError] = useState<string | null>(null);
 
@@ -79,7 +79,7 @@ export default function GenerateVideo() {
       stopPolling();
       setGenerating(false);
       setGenError("Tempo esgotado. A geração demorou mais que o esperado.");
-      refreshCredits();
+      syncCredits();
       return;
     }
 
@@ -89,30 +89,27 @@ export default function GenerateVideo() {
       if (res.status === "completed" && res.outputs.length > 0) {
         stopPolling();
         setResultVideo(res.outputs[0]);
+        setResultPoster(referenceImage);
         setGenerating(false);
         setGenError(null);
+        if (res.credits !== undefined) updateCredits(res.credits);
 
-        const model = state.models.find((m) => m.id === selectedModel);
         const gen: Generation = {
           id: crypto.randomUUID(),
-          modelId: selectedModel || "",
-          modelName: model?.name ?? "Seedance 1.5 Pro",
+          modelId: "",
+          modelName: "Seedance 1.5 Pro",
           url: res.outputs[0],
           type: "video",
           prompt: lastPrompt,
           createdAt: Date.now(),
         };
         addGeneration(gen);
-        if (model && selectedModel) {
-          updateModel(selectedModel, {
-            videosGenerated: (model.videosGenerated ?? 0) + 1,
-          });
-        }
       } else if (res.status === "failed") {
         stopPolling();
         setGenerating(false);
+        if (res.credits !== undefined) updateCredits(res.credits);
         setGenError(res.error ?? "A geração falhou. Seus créditos foram devolvidos.");
-        refreshCredits();
+        syncCredits();
       } else {
         const statusLabel = res.status === "processing" ? "Processando" : "Aguardando";
         setGeneratingStatus(`${statusLabel}...`);
@@ -129,7 +126,7 @@ export default function GenerateVideo() {
     }
   }
 
-  async function refreshCredits() {
+  async function syncCredits() {
     try {
       const res = await api.credits.balance();
       updateCredits(res.balance);
@@ -141,6 +138,7 @@ export default function GenerateVideo() {
 
     setGenerating(true);
     setResultVideo(null);
+    setResultPoster(null);
     setGenError(null);
     setGeneratingStatus("Enviando...");
     const currentPrompt = prompt.trim();
@@ -158,6 +156,7 @@ export default function GenerateVideo() {
         seed: seed || "-1",
       });
 
+      if (res.credits !== undefined) updateCredits(res.credits);
       setGeneratingStatus("Gerando...");
       pollRef.current = setTimeout(
         () => pollStatus(res.prediction_id, 0),
@@ -166,8 +165,11 @@ export default function GenerateVideo() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro ao iniciar geração";
       setGenerating(false);
+      if (err instanceof Error && "credits" in (err as any)) {
+        updateCredits((err as any).credits);
+      }
       setGenError(msg + " — seus créditos foram devolvidos.");
-      refreshCredits();
+      syncCredits();
     }
   }
 
@@ -184,36 +186,6 @@ export default function GenerateVideo() {
               <p className="text-[9px] font-black uppercase tracking-widest text-[#C0001A] leading-none">Seedance 1.5 Pro</p>
               <p className="text-[8px] text-black/40 font-medium mt-0.5">WaveSpeed AI · image-to-video · ByteDance</p>
             </div>
-          </div>
-
-          {/* Model selector — opcional */}
-          <div className="bg-white border border-black/8 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[9px] font-black uppercase tracking-widest text-black/40">{t("generateVideo.model")}</p>
-              <span className="text-[8px] font-bold text-black/25 uppercase tracking-widest border border-black/10 px-1.5 py-0.5">Opcional</span>
-            </div>
-            {readyModels.length === 0 ? (
-              <div className="border border-dashed border-black/10 p-3 text-center">
-                <p className="text-[9px] font-medium text-black/25">Nenhum modelo treinado — será integrado futuramente</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {readyModels.map((m) => (
-                  <button key={m.id} onClick={() => setSelectedModel(m.id)}
-                    className={`flex items-center gap-3 p-2.5 border-2 transition-colors text-left ${selectedModel === m.id ? "border-[#C0001A] bg-[#C0001A]/5" : "border-black/8 hover:border-black/20"}`}>
-                    <div className="w-9 h-9 bg-black/5 flex-shrink-0 overflow-hidden">
-                      {m.cover ? <img src={m.cover} alt={m.name} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center text-black/20 text-lg">◈</div>}
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-black uppercase tracking-tight text-black leading-none">{m.name}</p>
-                      <p className="text-[9px] text-black/40 font-medium mt-0.5">{m.videosGenerated} {t("generateVideo.videosGenerated")}</p>
-                    </div>
-                    {selectedModel === m.id && <span className="ml-auto text-[#C0001A] text-sm font-black">✓</span>}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Reference image — REQUIRED */}
@@ -440,8 +412,15 @@ export default function GenerateVideo() {
               </div>
 
               <div className={`${aspectStyle(aspectRatio)} w-full bg-black overflow-hidden relative`}>
-                <video key={resultVideo} src={resultVideo} autoPlay loop playsInline controls className="w-full h-full object-cover" />
-                <div className="absolute bottom-3 left-3 flex gap-2 pointer-events-none">
+                <VideoPreview
+                  src={resultVideo}
+                  poster={resultPoster}
+                  aspectRatio={aspectRatio}
+                  controls
+                  showOpen
+                  showDownload
+                />
+                <div className="absolute top-3 left-3 flex gap-2 pointer-events-none">
                   <span className="bg-black/60 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5">{duration}s</span>
                   <span className="bg-black/60 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5">{resolution}</span>
                   <span className="bg-black/60 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5">{aspectRatio}</span>
@@ -464,12 +443,20 @@ export default function GenerateVideo() {
               <p className="text-[9px] font-black uppercase tracking-widest text-black/30 mb-3">{t("generateVideo.recentVideos")}</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {state.generations.filter(g => g.type === "video").slice(0, 6).map((gen) => (
-                  <div key={gen.id} className="aspect-video bg-black overflow-hidden relative group cursor-pointer">
-                    <video src={gen.url} muted loop className="w-full h-full object-cover group-hover:opacity-80 transition-opacity" />
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <a key={gen.id} href={gen.url} target="_blank" rel="noreferrer"
+                    className="bg-black overflow-hidden relative group cursor-pointer block">
+                    <VideoPreview
+                      src={gen.url}
+                      aspectRatio="16:9"
+                      autoPlay={false}
+                      muted
+                      loop={false}
+                      showOpen
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                       <span className="text-white text-2xl">▷</span>
                     </div>
-                  </div>
+                  </a>
                 ))}
               </div>
             </div>

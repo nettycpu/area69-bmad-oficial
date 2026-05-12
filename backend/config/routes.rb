@@ -22,6 +22,7 @@ Rails.application.routes.draw do
     delete "generations/:id", to: "api/generations#destroy"
 
     get  "credits",       to: "api/credits#balance"
+    get  "pricing",       to: "api/credits#pricing"
     post "credits/add",   to: "api/credits#add"
     post "credits/spend", to: "api/credits#spend"
 

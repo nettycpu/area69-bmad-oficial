@@ -23,9 +23,14 @@ module Api
 
       when "checkout.session.expired"
         session = event.data.object
+        purchase = CreditPurchase.find_by(stripe_checkout_session_id: session.id)
+        if purchase && purchase.status == "pending"
+          purchase.update!(status: "expired")
+          Rails.logger.info("[StripeWebhook] Purchase expirado: #{session.id}")
+        end
+        # Limpar cache no user
         user = User.find_by(stripe_checkout_session_id: session.id)
         user&.update!(stripe_checkout_session_id: nil) if user
-        Rails.logger.info("[StripeWebhook] Sessao expirada limpa: #{session.id}")
 
       else
         Rails.logger.info("[StripeWebhook] Evento ignorado: #{event.type}")

@@ -52,7 +52,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function Settings() {
-  const { state, updateProfile, addCredits, resetAccount } = useStore();
+  const { state, updateProfile, updateCredits, resetAccount } = useStore();
   const { t, lang, setLang } = useI18n();
 
   const [name, setName]   = useState(state.profile.name);
@@ -254,6 +254,7 @@ export default function Settings() {
           </div>
         </Section>
 
+        {import.meta.env.VITE_ENABLE_DEV_CREDITS === "true" && (
         <Section title={t("settings.buyCredits")}>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
             {CREDIT_PACKS.map((pack) => {
@@ -324,8 +325,13 @@ export default function Settings() {
                     </p>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => {
-                          addCredits(selectedPack!);
+                        onClick={async () => {
+                          try {
+                            const res = await api.credits.add(selectedPack!);
+                            updateCredits(res.balance);
+                          } catch (e) {
+                            console.error("Falha ao adicionar créditos (dev):", e);
+                          }
                           setBuyStep("done");
                           setTimeout(() => { setBuyStep("idle"); setSelectedPack(null); }, 3000);
                         }}
@@ -358,6 +364,7 @@ export default function Settings() {
             )}
           </AnimatePresence>
         </Section>
+        )}
 
         <Section title={t("settings.notifications")}>
           <div className="bg-white border border-black/8 divide-y divide-black/5">

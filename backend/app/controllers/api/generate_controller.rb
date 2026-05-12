@@ -9,8 +9,8 @@ module Api
     QWEN_MODEL         = "wavespeed-ai/qwen-image-2.0-pro/edit"
     SEEDANCE_MODEL     = "bytedance/seedance-v1.5-pro/image-to-video"
 
-    COST_PER_IMAGE     = 5
-    COST_PER_VIDEO     = 30
+    ASPECT_RATIOS = %w[1:1 3:4 4:5 9:16 16:9 21:9 4:3 3:4].freeze
+    RESOLUTIONS   = %w[480p 720p 1080p].freeze
 
     SIZE_MAP = {
       ["1:1",  "480p"]  => "480*480",
@@ -33,6 +33,8 @@ module Api
       ["21:9", "1080p"] => "2048*878",
     }.freeze
 
+    # ─────────────────────────── Qwen Image ─────────────────────────────────
+
     def create_image
       api_key = ENV["WAVESPEED_API_KEY"]
       return render_error("Serviço de geração não configurado", :service_unavailable) unless api_key.present?
@@ -49,11 +51,29 @@ module Api
 
       size = SIZE_MAP[[aspect, res]] || "1024*1024"
 
-      # Deduct credits atomically
-      updated = User.where(id: current_user.id)
-                    .where("credits >= ?", COST_PER_IMAGE)
-                    .update_all(["credits = credits - ?", COST_PER_IMAGE])
-      return render_error("Créditos insuficientes", :payment_required) if updated == 0
+      job = current_user.generation_jobs.create!(
+        provider: "wavespeed",
+        provider_model: QWEN_MODEL,
+        generation_type: "image",
+        status: "queued",
+        cost_credits: Pricing::QWEN_IMAGE,
+        prompt: prompt,
+        input_urls: images,
+        aspect_ratio: aspect.presence,
+        resolution: res.presence,
+        seed: seed,
+        idempotency_key: "gen:image:#{SecureRandom.uuid}"
+      )
+
+      # Cobrar
+      CreditLedger.spend!(
+        user: current_user,
+        amount: Pricing::QWEN_IMAGE,
+        source: "qwen_image",
+        idempotency_key: "generation_job:#{job.id}:charge",
+        reference: job
+      )
+      job.update!(charged_at: Time.current)
 
       payload = { prompt: prompt, images: images, size: size }
       payload[:seed] = seed.to_i if seed.present? && seed.to_s != "-1"
@@ -62,37 +82,49 @@ module Api
 
       if status == 200
         data = body["data"] || body
-        render json: { prediction_id: data["id"], status: data["status"] }
+        provider_id = data["id"]
+        job.update!(provider_request_id: provider_id, status: "submitted")
+        render json: {
+          job_id: job.id,
+          prediction_id: provider_id,
+          status: job.status,
+          credits: current_user.reload.credits
+        }
       else
-        current_user.increment!(:credits, COST_PER_IMAGE)
+        refund_job(job)
         error_msg = provider_friendly_error(body)
-        render_error(error_msg, :bad_gateway)
+        render json: { error: error_msg, credits: current_user.reload.credits }, status: :bad_gateway
       end
-    rescue => e
-      current_user.increment!(:credits, COST_PER_IMAGE)
-      render_error("Falha na geração: #{e.message}", :internal_server_error)
+    rescue CreditLedger::InsufficientCredits
+      render_error("Créditos insuficientes", :payment_required)
+    rescue ActiveRecord::RecordInvalid => e
+      render_error(e.message)
     end
 
     def image_status
       api_key = ENV["WAVESPEED_API_KEY"]
       return render_error("Serviço de geração não configurado", :service_unavailable) unless api_key.present?
 
-      prediction_id = params[:id]
-      body, status = wavespeed_get("#{WAVESPEED_API_BASE}/predictions/#{prediction_id}/result", api_key)
+      job = find_job(params[:id])
+      return render_error("Job não encontrado", :not_found) unless job
+
+      body, status = wavespeed_get("#{WAVESPEED_API_BASE}/predictions/#{job.provider_request_id}/result", api_key)
 
       if status == 200
         data = body["data"] || body
-        render json: {
-          status:  data["status"],
-          outputs: data["outputs"] || [],
-          error:   data["error"],
-        }
+        process_completed(job, data)
       else
-        render_error(body["message"] || "Erro ao verificar status", :bad_gateway)
+        render json: {
+          status: job.status,
+          outputs: job.output_urls,
+          credits: current_user.reload.credits
+        }
       end
     rescue => e
       render_error("Erro ao verificar status: #{e.message}", :internal_server_error)
     end
+
+    # ─────────────────────────── Seedance Video ─────────────────────────────
 
     def create_video
       api_key = ENV["WAVESPEED_API_KEY"]
@@ -110,147 +142,304 @@ module Api
       return render_error("Prompt é obrigatório") if prompt.blank?
       return render_error("Imagem de referência é obrigatória") if image.blank?
 
-      payload = {
-        prompt:         prompt,
-        image:          image,
-        aspect_ratio:   aspect_ratio,
-        duration:       duration,
-        resolution:     resolution,
-        generate_audio: generate_audio,
-        camera_fixed:   camera_fixed,
-        seed:           seed.present? ? seed.to_i : -1,
-      }
+      job = current_user.generation_jobs.create!(
+        provider: "wavespeed",
+        provider_model: SEEDANCE_MODEL,
+        generation_type: "video",
+        status: "queued",
+        cost_credits: Pricing::SEEDANCE_VIDEO,
+        prompt: prompt,
+        input_urls: [image],
+        aspect_ratio: aspect_ratio,
+        resolution: resolution,
+        duration: duration,
+        seed: seed,
+        thumbnail_url: image,
+        idempotency_key: "gen:video:#{SecureRandom.uuid}"
+      )
 
-      # Deduct credits atomically
-      updated = User.where(id: current_user.id)
-                    .where("credits >= ?", COST_PER_VIDEO)
-                    .update_all(["credits = credits - ?", COST_PER_VIDEO])
-      return render_error("Créditos insuficientes", :payment_required) if updated == 0
+      # Cobrar
+      CreditLedger.spend!(
+        user: current_user,
+        amount: Pricing::SEEDANCE_VIDEO,
+        source: "seedance_video",
+        idempotency_key: "generation_job:#{job.id}:charge",
+        reference: job
+      )
+      job.update!(charged_at: Time.current)
+
+      payload = {
+        prompt: prompt, image: image, aspect_ratio: aspect_ratio,
+        duration: duration, resolution: resolution,
+        generate_audio: generate_audio, camera_fixed: camera_fixed,
+        seed: seed.present? ? seed.to_i : -1,
+      }
 
       body, status = wavespeed_post("#{WAVESPEED_API_BASE}/#{SEEDANCE_MODEL}", payload, api_key)
 
       if status == 200
         data = body["data"] || body
-        render json: { prediction_id: data["id"], status: data["status"] }
+        provider_id = data["id"]
+        job.update!(provider_request_id: provider_id, status: "submitted")
+        render json: {
+          job_id: job.id,
+          prediction_id: provider_id,
+          status: job.status,
+          credits: current_user.reload.credits
+        }
       else
-        current_user.increment!(:credits, COST_PER_VIDEO)
-        render_error(body["message"] || body["error"] || "WaveSpeed API error", :bad_gateway)
+        refund_job(job)
+        render json: { error: body["message"] || body["error"] || "WaveSpeed API error", credits: current_user.reload.credits }, status: :bad_gateway
       end
-    rescue => e
-      current_user.increment!(:credits, COST_PER_VIDEO)
-      render_error("Falha na geração: #{e.message}", :internal_server_error)
+    rescue CreditLedger::InsufficientCredits
+      render_error("Créditos insuficientes", :payment_required)
+    rescue ActiveRecord::RecordInvalid => e
+      render_error(e.message)
     end
 
     def video_status
       api_key = ENV["WAVESPEED_API_KEY"]
       return render_error("Serviço de geração não configurado", :service_unavailable) unless api_key.present?
 
-      prediction_id = params[:id]
-      body, status = wavespeed_get("#{WAVESPEED_API_BASE}/predictions/#{prediction_id}/result", api_key)
+      job = find_job(params[:id])
+      return render_error("Job não encontrado", :not_found) unless job
+
+      body, status = wavespeed_get("#{WAVESPEED_API_BASE}/predictions/#{job.provider_request_id}/result", api_key)
 
       if status == 200
         data = body["data"] || body
-        render json: {
-          status:  data["status"],
-          outputs: data["outputs"] || [],
-          error:   data["error"],
-        }
+        process_completed(job, data)
       else
-        render_error(body["message"] || "Erro ao verificar status", :bad_gateway)
+        render json: {
+          status: job.status,
+          outputs: job.output_urls,
+          credits: current_user.reload.credits
+        }
       end
     rescue => e
       render_error("Erro ao verificar status: #{e.message}", :internal_server_error)
     end
 
-    # ─────────────────────────── Higgsfield AI ─────────────────────────────
+    # ─────────────────────────── Higgsfield Soul Character ──────────────────
 
     def create_higgsfield
-      model_id     = params[:model_id].to_s
-      prompt       = params[:prompt].to_s.strip
-      images       = Array(params[:images])
-      seed         = params[:seed]
-      aspect_ratio = params[:aspect_ratio].to_s.presence || "9:16"
-      resolution   = params[:resolution].to_s.presence || "720p"
+      model_id          = params[:model_id].to_s
+      prompt            = params[:prompt].to_s.strip
+      images            = Array(params[:images])
+      seed              = params[:seed]
+      aspect_ratio      = params[:aspect_ratio].to_s.presence || "9:16"
+      resolution        = params[:resolution].to_s.presence || "720p"
+      character_strength = params[:character_strength] || 1
+      result_images     = params[:result_images] || 1
+      enhance_prompt    = params.key?(:enhance_prompt) ? params[:enhance_prompt] : true
 
       return render_error("Modelo é obrigatório") if model_id.blank?
 
       model = current_user.avatar_models.find_by!(id: model_id)
-      return render_error("Modelo não está pronto — Soul ID não encontrado. Conclua o treinamento primeiro.") unless model.soul_id.present? && model.status == "ready"
+      return render_error("Modelo não está pronto — Character ID não encontrado. Conclua o treinamento primeiro.") unless model.soul_id.present? && model.status == "ready"
 
       return render_error("Prompt é obrigatório") if prompt.blank?
       return render_error("Máximo de 6 imagens de referência") if images.size > 6
 
-      # Se imagens forem data URLs (base64), fazer upload para R2 primeiro
+      # Upload imagens base64 para R2
       if images.any? { |img| img.start_with?("data:") }
         public_urls = upload_images_to_r2(model, images)
         images = public_urls
       end
 
-      # Deduct credits atomically
-      updated = User.where(id: current_user.id)
-                    .where("credits >= ?", COST_PER_IMAGE)
-                    .update_all(["credits = credits - ?", COST_PER_IMAGE])
-      return render_error("Créditos insuficientes", :payment_required) if updated == 0
+      job = current_user.generation_jobs.create!(
+        provider: "higgsfield",
+        provider_model: "higgsfield-ai/soul/character",
+        generation_type: "image",
+        status: "queued",
+        cost_credits: Pricing::HIGGSFIELD_CHARACTER,
+        prompt: prompt,
+        input_urls: images,
+        aspect_ratio: aspect_ratio,
+        resolution: resolution,
+        seed: seed,
+        avatar_model: model,
+        idempotency_key: "gen:higgsfield:#{SecureRandom.uuid}"
+      )
 
-      options = {}
-      options[:images]       = images if images.any?
-      options[:seed]         = seed.to_i if seed.present? && seed.to_s != "-1"
-      options[:aspect_ratio] = aspect_ratio
-      options[:resolution]   = resolution
+      # Cobrar
+      CreditLedger.spend!(
+        user: current_user,
+        amount: Pricing::HIGGSFIELD_CHARACTER,
+        source: "higgsfield_character",
+        idempotency_key: "generation_job:#{job.id}:charge",
+        reference: job
+      )
+      job.update!(charged_at: Time.current)
+
+      options = {
+        aspect_ratio: aspect_ratio,
+        resolution: resolution,
+        character_strength: character_strength.to_f,
+        result_images: result_images.to_i,
+        enhance_prompt: enhance_prompt,
+        images: images,
+        seed: seed
+      }
 
       service = HiggsfieldService.new
       result  = service.generate_image(soul_id: model.soul_id, prompt: prompt, **options)
 
+      provider_id = result[:request_id]
+      job.update!(provider_request_id: provider_id, status: "submitted")
       model.increment!(:images_generated)
 
       render json: {
-        prediction_id: result[:request_id],
-        status: result[:status],
+        job_id: job.id,
+        prediction_id: provider_id,
+        status: job.status,
         credits: current_user.reload.credits
       }
     rescue HiggsfieldService::APIError => e
-      current_user.increment!(:credits, COST_PER_IMAGE)
+      refund_job(job) if job&.persisted?
       credits = current_user.reload.credits
       msg = e.message.to_s
-      if msg.downcase.include?("model not found") || msg.downcase.include?("custom reference nao encontrado")
-        render json: {
-          error: "Modelo Higgsfield não encontrado para geração. O Soul ID pode pertencer a outra conta/API key ou o endpoint de geração precisa ser ajustado.",
-          credits: credits
-        }, status: :bad_gateway
+      if msg.downcase.include?("not found") || msg.downcase.include?("character nao encontrado")
+        render json: { error: "Character ID não encontrado na Higgsfield. Recrie o modelo.", credits: credits }, status: :bad_gateway
       else
         render json: { error: msg, credits: credits }, status: :bad_gateway
       end
     rescue HiggsfieldService::TimeoutError => e
-      current_user.increment!(:credits, COST_PER_IMAGE)
+      refund_job(job) if job&.persisted?
       render_error(e.message, :gateway_timeout)
     rescue HiggsfieldService::Error => e
-      current_user.increment!(:credits, COST_PER_IMAGE)
+      refund_job(job) if job&.persisted?
       render_error(e.message, :service_unavailable)
     rescue ActiveRecord::RecordNotFound
       render_error("Modelo não encontrado", :not_found)
-    rescue => e
-      current_user.increment!(:credits, COST_PER_IMAGE)
-      render_error("Falha na geração: #{e.message}", :internal_server_error)
+    rescue CreditLedger::InsufficientCredits
+      render_error("Créditos insuficientes", :payment_required)
     end
 
     def higgsfield_status
-      prediction_id = params[:id]
-      result = HiggsfieldService.new.generation_status(prediction_id)
+      job = find_job(params[:id])
+      return render_error("Job não encontrado", :not_found) unless job
 
-      render json: {
-        status:  result[:status],
-        outputs: result[:outputs] || [],
-        error:   result[:error]
-      }
+      result = HiggsfieldService.new.generation_status(job.provider_request_id)
+
+      if result[:status] == "completed" && result[:outputs].any?
+        process_completed(job, { "outputs" => result[:outputs], "status" => "completed" })
+      elsif result[:status] == "failed"
+        process_failed(job, result[:error])
+      else
+        render json: { status: result[:status], outputs: job.output_urls, credits: current_user.reload.credits }
+      end
     rescue HiggsfieldService::APIError => e
       render_error(e.message, :bad_gateway)
     rescue HiggsfieldService::TimeoutError => e
       render_error(e.message, :gateway_timeout)
-    rescue => e
-      render_error("Erro ao verificar status: #{e.message}", :internal_server_error)
     end
 
     private
+
+    def find_job(id_or_request_id)
+      job = current_user.generation_jobs.find_by(id: id_or_request_id)
+      job ||= current_user.generation_jobs.find_by(provider_request_id: id_or_request_id)
+      job
+    end
+
+    def process_completed(job, data)
+      outputs = extract_outputs(data)
+
+      job.update!(
+        status: "completed",
+        output_urls: outputs,
+        completed_at: Time.current
+      )
+
+      # Criar Generation exatamente uma vez
+      if outputs.any? && !job.metadata.dig("generation_created")
+        outputs.each do |url|
+          current_user.generations.find_or_create_by!(
+            model_name: job.avatar_model&.name || job.provider_model,
+            generation_type: job.generation_type,
+            prompt: job.prompt,
+            url: url,
+            generation_job_id: job.id,
+            thumbnail_url: job.thumbnail_url,
+            provider: job.provider,
+            provider_model: job.provider_model,
+            aspect_ratio: job.aspect_ratio,
+            resolution: job.resolution,
+            duration: job.duration
+          )
+        end
+        job.update!(metadata: job.metadata.merge("generation_created" => true))
+
+        # Incrementar contadores de user (apenas uma vez)
+        unless job.metadata.dig("counters_updated")
+          column = job.generation_type == "image" ? :images_generated : :videos_generated
+          current_user.increment!(column, outputs.size)
+          job.update!(metadata: job.metadata.merge("counters_updated" => true))
+        end
+      end
+
+      render json: {
+        status: "completed",
+        outputs: outputs,
+        credits: current_user.reload.credits
+      }
+    end
+
+    def process_failed(job, error_message)
+      job.update!(status: "failed", error_message: error_message)
+
+      # Reembolso idempotente
+      unless job.refunded_at
+        CreditLedger.refund!(
+          user: current_user,
+          amount: job.cost_credits,
+          source: job.source_for_refund,
+          idempotency_key: "generation_job:#{job.id}:refund",
+          reference: job,
+          metadata: { error: error_message }
+        )
+        job.update!(refunded_at: Time.current)
+      end
+
+      render json: {
+        status: "failed",
+        error: error_message,
+        outputs: job.output_urls,
+        credits: current_user.reload.credits
+      }
+    end
+
+    def refund_job(job)
+      job.update!(status: "failed", error_message: "Submit failed")
+      return if job.refunded_at
+
+      CreditLedger.refund!(
+        user: current_user,
+        amount: job.cost_credits,
+        source: job.source_for_refund,
+        idempotency_key: "generation_job:#{job.id}:refund",
+        reference: job,
+        metadata: { error: "submit_failed" }
+      )
+      job.update!(refunded_at: Time.current)
+    rescue => e
+      Rails.logger.error("[Generate] Erro ao reembolsar job #{job.id}: #{e.message}")
+    end
+
+    def extract_outputs(data)
+      outputs = []
+      if data["outputs"].is_a?(Array)
+        outputs = data["outputs"].map { |o| o.is_a?(Hash) ? o["url"] : o }.compact
+      elsif data["images"].is_a?(Array)
+        outputs = data["images"].map { |img| img.is_a?(Hash) ? img["url"] : img }.compact
+      elsif data["result_images"].is_a?(Array)
+        outputs = data["result_images"].map { |img| img.is_a?(Hash) ? img["url"] : img }.compact
+      end
+      outputs
+    end
+
+    # ─────────────────────────── HTTP / Upload helpers ──────────────────────
 
     def build_http(uri, read_timeout: 60)
       http = Net::HTTP.new(uri.host, uri.port)
@@ -258,7 +447,6 @@ module Api
       http.read_timeout = read_timeout
       http.verify_mode  = OpenSSL::SSL::VERIFY_PEER
       http.ca_file      = OpenSSL::X509::DEFAULT_CERT_FILE if File.exist?(OpenSSL::X509::DEFAULT_CERT_FILE.to_s)
-      # Disable CRL checking — CRL distribution points unreachable in this environment
       store = OpenSSL::X509::Store.new
       store.set_default_paths
       store.flags = OpenSSL::X509::V_FLAG_CRL_CHECK_ALL ^ OpenSSL::X509::V_FLAG_CRL_CHECK_ALL
@@ -269,12 +457,10 @@ module Api
     def wavespeed_post(url, payload, api_key)
       uri  = URI(url)
       http = build_http(uri, read_timeout: 60)
-
       req = Net::HTTP::Post.new(uri)
       req["Authorization"] = "Bearer #{api_key}"
       req["Content-Type"]  = "application/json"
       req.body = payload.to_json
-
       resp = http.request(req)
       [JSON.parse(resp.body), resp.code.to_i]
     end
@@ -282,15 +468,12 @@ module Api
     def wavespeed_get(url, api_key)
       uri  = URI(url)
       http = build_http(uri, read_timeout: 30)
-
       req = Net::HTTP::Get.new(uri)
       req["Authorization"] = "Bearer #{api_key}"
-
       resp = http.request(req)
       [JSON.parse(resp.body), resp.code.to_i]
     end
 
-    # Retorna mensagem amigavel quando o provedor (WaveSpeed) esta sem saldo
     def provider_friendly_error(body)
       raw = body["message"].to_s + " " + body["error"].to_s
       raw_down = raw.downcase
@@ -301,7 +484,6 @@ module Api
       end
     end
 
-    # Upload de imagens base64 para R2 (compartilhado com TrainingController)
     def upload_images_to_r2(model, images)
       public_host = ENV.fetch("R2_PUBLIC_URL_HOST")
       bucket_name = ENV.fetch("R2_BUCKET")
@@ -316,12 +498,8 @@ module Api
       )
 
       mime_to_ext = {
-        "image/jpeg" => "jpg",
-        "image/png"  => "png",
-        "image/webp" => "webp",
-        "image/gif"  => "gif",
-        "image/avif" => "avif",
-        "image/tiff" => "tiff",
+        "image/jpeg" => "jpg", "image/png" => "png", "image/webp" => "webp",
+        "image/gif" => "gif", "image/avif" => "avif", "image/tiff" => "tiff",
       }.freeze
 
       bucket = s3.bucket(bucket_name)
@@ -332,14 +510,8 @@ module Api
         raw  = data_url.split(",", 2).second || data_url
         decoded = Base64.decode64(raw)
         ext = mime_to_ext[mime] || "jpg"
-
         key = "generate/#{model.id}/#{SecureRandom.uuid}.#{ext}"
-
-        bucket.object(key).put(
-          body: decoded,
-          content_type: mime
-        )
-
+        bucket.object(key).put(body: decoded, content_type: mime)
         keys << key
       end
 

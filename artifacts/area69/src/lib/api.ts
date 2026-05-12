@@ -169,12 +169,12 @@ export const api = {
       resolution?: string;
       seed?: string;
     }) =>
-      request<{ prediction_id: string; status: string }>("/generate/image", {
+      request<{ prediction_id: string; status: string; job_id?: number; credits?: number }>("/generate/image", {
         method: "POST",
         body: JSON.stringify(data),
       }),
     imageStatus: (id: string) =>
-      request<{ status: string; outputs: string[]; error?: string }>(
+      request<{ status: string; outputs: string[]; error?: string; credits?: number }>(
         `/generate/image/${id}`,
       ),
     video: (data: {
@@ -187,12 +187,12 @@ export const api = {
       camera_fixed?: boolean;
       seed?: string;
     }) =>
-      request<{ prediction_id: string; status: string }>("/generate/video", {
+      request<{ prediction_id: string; status: string; job_id?: number; credits?: number }>("/generate/video", {
         method: "POST",
         body: JSON.stringify(data),
       }),
     videoStatus: (id: string) =>
-      request<{ status: string; outputs: string[]; error?: string }>(
+      request<{ status: string; outputs: string[]; error?: string; credits?: number }>(
         `/generate/video/${id}`,
       ),
     higgsfield: (data: {
@@ -202,13 +202,16 @@ export const api = {
       seed?: string;
       aspect_ratio?: string;
       resolution?: string;
+      character_strength?: number;
+      result_images?: number;
+      enhance_prompt?: boolean;
     }) =>
-      request<{ prediction_id: string; status: string; credits?: number }>(
+      request<{ prediction_id: string; status: string; job_id?: number; credits?: number }>(
         "/generate/higgsfield",
         { method: "POST", body: JSON.stringify(data) },
       ),
     higgsfieldStatus: (id: string) =>
-      request<{ status: string; outputs: string[]; error?: string }>(
+      request<{ status: string; outputs: string[]; error?: string; credits?: number }>(
         `/generate/higgsfield/${id}/status`,
       ),
   },
@@ -228,6 +231,14 @@ export const api = {
         body: JSON.stringify(data),
       }),
   },
+  pricing: () =>
+    request<{
+      qwen_image: number;
+      seedance_video: number;
+      higgsfield_character: number;
+      higgsfield_training: number;
+      credit_packs: number[];
+    }>("/pricing"),
   health: {
     check: () => request<{ status: string }>("/healthz"),
   },

@@ -3,7 +3,10 @@ module Api
     MAX_CREDIT_ADD = 10_000
 
     def balance
-      render json: { balance: current_user.credits }
+      render json: {
+        balance: current_user.credits,
+        ledger_latest: current_user.credit_transactions.posted.order(created_at: :desc).first&.as_json
+      }
     end
 
     def add
@@ -12,23 +15,46 @@ module Api
       return render_error("Amount must be positive") unless amount > 0
       return render_error("Amount exceeds maximum") if amount > MAX_CREDIT_ADD
 
-      current_user.increment!(:credits, amount)
-      render json: { balance: current_user.reload.credits }
+      idempotency_key = request.headers["X-Idempotency-Key"].presence || "admin:add:#{current_user.id}:#{SecureRandom.uuid}"
+
+      result = CreditLedger.add!(
+        user: current_user,
+        amount: amount,
+        kind: "admin_adjustment",
+        source: "admin",
+        idempotency_key: idempotency_key,
+        metadata: { note: params[:note] }
+      )
+
+      render json: { balance: result[:balance] }
+    rescue CreditLedger::Error => e
+      render_error(e.message)
     end
 
     def spend
+      verify_credits_secret!
       amount = params[:amount].to_i
       return render_error("Amount must be positive") unless amount > 0
 
-      updated = User.where(id: current_user.id)
-                    .where("credits >= ?", amount)
-                    .update_all(["credits = credits - ?", amount])
+      idempotency_key = request.headers["X-Idempotency-Key"].presence || "admin:spend:#{current_user.id}:#{SecureRandom.uuid}"
 
-      if updated == 0
-        return render_error("Insufficient credits")
-      end
+      result = CreditLedger.spend!(
+        user: current_user,
+        amount: amount,
+        source: "admin",
+        idempotency_key: idempotency_key,
+        metadata: { note: params[:note] }
+      )
 
-      render json: { balance: current_user.reload.credits }
+      render json: { balance: result[:balance] }
+    rescue CreditLedger::InsufficientCredits => e
+      render_error(e.message, :payment_required)
+    rescue CreditLedger::Error => e
+      render_error(e.message)
+    end
+
+    def pricing
+      render json: Pricing.all
     end
 
     private

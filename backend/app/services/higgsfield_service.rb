@@ -5,7 +5,7 @@ require "openssl"
 
 class HiggsfieldService
   HIGGSFIELD_BASE = "https://platform.higgsfield.ai"
-  SOUL_STANDARD_MODEL = "/higgsfield-ai/soul/standard"
+  SOUL_CHARACTER_MODEL = "/higgsfield-ai/soul/character"
 
   class Error < StandardError; end
 
@@ -44,36 +44,49 @@ class HiggsfieldService
   end
 
   # Submete job de geração de imagem usando um Soul ID já treinado
-  # Usa o endpoint oficial: POST /higgsfield-ai/soul/standard
+  # Usa o endpoint oficial: POST /higgsfield-ai/soul/character
   def generate_image(soul_id:, prompt:, **options)
-    reference_id = soul_id.to_s
+    character_id = soul_id.to_s
 
-    # Antes de gerar, valida se o custom reference existe e está pronto
+    # Antes de gerar, valida se o custom reference (character) existe e está pronto
     begin
-      ref = custom_reference(reference_id)
+      ref = custom_reference(character_id)
       unless ref[:status] == "completed" || ref[:status] == "ready"
-        raise APIError.new("Custom Reference #{reference_id[0..12]}... status=#{ref[:status]}, aguarde o treinamento concluir.")
+        raise APIError.new("Character #{character_id[0..12]}... status=#{ref[:status]}, aguarde o treinamento concluir.")
       end
-      Rails.logger.info("[Higgsfield] Reference validated: id=#{reference_id[0..20]}... status=#{ref[:status]}")
+      Rails.logger.info("[Higgsfield] Character validated: id=#{character_id[0..20]}... status=#{ref[:status]}")
     rescue APIError => e
-      raise APIError.new("Custom Reference nao encontrado na Higgsfield (reference_id=#{reference_id[0..12]}...). Recrie o modelo.", e.status_code)
+      raise APIError.new("Character nao encontrado na Higgsfield (character_id=#{character_id[0..12]}...). Recrie o modelo.", e.status_code)
     end
 
     payload = {
       prompt: prompt,
       aspect_ratio: options[:aspect_ratio] || "9:16",
       resolution: options[:resolution] || "720p",
-      custom_reference: reference_id,
-      custom_reference_strength: options[:custom_reference_strength] || 1
+      character_id: character_id,
+      character_strength: options[:character_strength] || 1,
+      result_images: options[:result_images] || 1,
+      enhance_prompt: options.key?(:enhance_prompt) ? options[:enhance_prompt] : true
     }
 
-    payload[:images] = options[:images] if options[:images].present?
-    payload[:seed] = options[:seed].to_i if options[:seed].present? && options[:seed].to_s != "-1"
+    # Imagem de referência opcional — enviar URL pública
+    if options[:images].present?
+      first_image = options[:images].is_a?(Array) ? options[:images].first : options[:images]
+      payload[:image_reference_url] = first_image
+    end
+
+    if options[:seed].present? && options[:seed].to_s != "-1"
+      payload[:seed] = options[:seed].to_i
+    end
+
+    # Campos opcionais de estilo (se o playground da API os aceitar)
+    payload[:soul_style] = options[:soul_style] if options[:soul_style].present?
+    payload[:style_strength] = options[:style_strength] if options[:style_strength].present?
 
     payload_keys = payload.keys.inspect
-    Rails.logger.info("[Higgsfield] POST model=#{SOUL_STANDARD_MODEL} reference=#{reference_id[0..12]}... keys=#{payload_keys} prompt=#{prompt.truncate(120).inspect}")
+    Rails.logger.info("[Higgsfield] POST model=#{SOUL_CHARACTER_MODEL} character=#{character_id[0..12]}... keys=#{payload_keys} prompt=#{prompt.truncate(120).inspect}")
 
-    body, status = post(SOUL_STANDARD_MODEL, payload)
+    body, status = post(SOUL_CHARACTER_MODEL, payload)
 
     {
       request_id: body["request_id"] || body["id"] || body.dig("data", "request_id") || body.dig("data", "id"),
@@ -83,6 +96,8 @@ class HiggsfieldService
   end
 
   # Verifica o status de um job de GERACAO (retorna outputs)
+  # Tenta extrair outputs de: body["outputs"], body["images"][].url,
+  # body.dig("data", "outputs"), body.dig("data", "images")[].url
   def generation_status(request_id)
     body, status = get("/requests/#{request_id}/status")
 
@@ -90,18 +105,22 @@ class HiggsfieldService
       raise APIError.new(body["error"] || body["message"] || "Erro ao verificar status", status)
     end
 
-    outputs = if body["outputs"].is_a?(Array)
-                body["outputs"].map { |o| o.is_a?(Hash) ? o["url"] : o }.compact
-              elsif body["images"].is_a?(Array)
-                body["images"].map { |img| img.is_a?(Hash) ? img["url"] : img }.compact
+    data = body["data"] || body
+
+    outputs = if data["outputs"].is_a?(Array)
+                data["outputs"].map { |o| o.is_a?(Hash) ? o["url"] : o }.compact
+              elsif data["images"].is_a?(Array)
+                data["images"].map { |img| img.is_a?(Hash) ? img["url"] : img }.compact
+              elsif data.dig("result_images").is_a?(Array)
+                data["result_images"].map { |img| img.is_a?(Hash) ? img["url"] : img }.compact
               else
                 []
               end
 
     {
-      status:  body["status"],
+      status:  data["status"],
       outputs: outputs,
-      error:   body["error"]
+      error:   data["error"]
     }
   rescue JSON::ParserError
     raise APIError.new("Resposta malformada da Higgsfield no status")

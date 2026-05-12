@@ -13,7 +13,7 @@ const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_ATTEMPTS = 60;
 
 export default function GenerateHiggsfield() {
-  const { state, addGeneration, updateModel, updateCredits } = useStore();
+  const { state, addGeneration, updateCredits } = useStore();
   const { t } = useI18n();
   const [location] = useLocation();
 
@@ -41,6 +41,9 @@ export default function GenerateHiggsfield() {
   const [seed, setSeed] = useState<string>("");
   const [aspectRatio, setAspectRatio] = useState<string>("9:16");
   const [resolution, setResolution] = useState<string>("720p");
+  const [characterStrength, setCharacterStrength] = useState<number>(1);
+  const [resultImages, setResultImages] = useState<number>(1);
+  const [enhancePrompt, setEnhancePrompt] = useState<boolean>(true);
   const [generating, setGenerating] = useState(false);
   const [generatingStatus, setGeneratingStatus] = useState<string>("");
   const [results, setResults] = useState<string[]>([]);
@@ -93,18 +96,19 @@ export default function GenerateHiggsfield() {
     try {
       const res = await api.generate.higgsfieldStatus(predictionId);
 
+      if (res.credits !== undefined) updateCredits(res.credits);
+
       if (res.status === "completed" && res.outputs.length > 0) {
         stopPolling();
         setResults(res.outputs);
         setGenerating(false);
         setGenError(null);
 
-        const model = state.models.find((m) => m.id === selectedModel);
         res.outputs.forEach((url) => {
           const gen: Generation = {
             id: crypto.randomUUID(),
             modelId: selectedModel || "",
-            modelName: model?.name ?? "Higgsfield Soul 2.0",
+            modelName: "Higgsfield Soul Character",
             url,
             type: "image",
             prompt: lastPrompt,
@@ -112,12 +116,6 @@ export default function GenerateHiggsfield() {
           };
           addGeneration(gen);
         });
-        if (model && selectedModel) {
-          updateModel(selectedModel, {
-            imagesGenerated:
-              (model.imagesGenerated ?? 0) + res.outputs.length,
-          });
-        }
       } else if (res.status === "failed") {
         stopPolling();
         setGenerating(false);
@@ -127,7 +125,7 @@ export default function GenerateHiggsfield() {
         } else {
           setGenError(errMsg || "A geração falhou. Seus créditos foram devolvidos.");
         }
-        refreshCredits();
+        if (res.credits === undefined) refreshCredits();
       } else {
         const statusLabel = res.status === "processing" ? "Processando" : "Aguardando";
         setGeneratingStatus(`${statusLabel}...`);
@@ -169,6 +167,9 @@ export default function GenerateHiggsfield() {
         seed: seed || undefined,
         aspect_ratio: aspectRatio,
         resolution,
+        character_strength: characterStrength,
+        result_images: resultImages,
+        enhance_prompt: enhancePrompt,
       });
 
       // Se o backend retornou credits atualizado, sincronizar
@@ -227,7 +228,7 @@ export default function GenerateHiggsfield() {
                 Soul 2.0 Character
               </p>
               <p className="text-[8px] text-black/40 font-medium mt-0.5">
-                Higgsfield AI · Soul ID
+                Higgsfield Soul Character · Character ID
                 {selectedSoulId && (
                   <span className="ml-1 text-[#7C3AED]/60">
                     · {selectedSoulId.slice(0, 8)}...
@@ -245,7 +246,7 @@ export default function GenerateHiggsfield() {
                   Modelo Treinado
                 </p>
                 <p className="text-[8px] text-[#7C3AED] font-bold mt-0.5 uppercase tracking-wide">
-                  Obrigatório — usa seu Soul ID
+                  Obrigatório — usa seu Character ID
                 </p>
               </div>
             </div>
@@ -288,7 +289,7 @@ export default function GenerateHiggsfield() {
                         {m.name}
                       </p>
                       <p className="text-[8px] text-black/40 font-medium mt-0.5 truncate">
-                        Soul: {m.soulId?.slice(0, 12)}... · {m.imagesGenerated}{" "}
+                        Char ID: {m.soulId?.slice(0, 12)}... · {m.imagesGenerated}{" "}
                         imgs
                       </p>
                     </div>
@@ -471,6 +472,65 @@ export default function GenerateHiggsfield() {
             </div>
           </div>
 
+          {/* Character Strength */}
+          <div className="bg-white border border-black/8 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-black/40">
+                Character Strength
+              </p>
+              <span className="text-[8px] font-black text-[#7C3AED] tabular-nums">
+                {characterStrength.toFixed(1)}
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={characterStrength}
+              onChange={(e) => setCharacterStrength(parseFloat(e.target.value))}
+              className="w-full accent-[#7C3AED]"
+            />
+            <div className="flex justify-between text-[7px] text-black/25 font-medium mt-1">
+              <span>0 (flexível)</span>
+              <span>1 (fiel ao character)</span>
+            </div>
+          </div>
+
+          {/* Result Images & Enhance Prompt */}
+          <div className="bg-white border border-black/8 p-4">
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-2">
+                  Resultados
+                </p>
+                <select
+                  value={resultImages}
+                  onChange={(e) => setResultImages(parseInt(e.target.value))}
+                  className="w-full border-2 border-black/10 focus:border-[#7C3AED] outline-none px-3 py-2.5 text-xs font-medium text-black bg-white transition-colors"
+                >
+                  <option value={1}>1 imagem</option>
+                  <option value={4}>4 imagens</option>
+                </select>
+              </div>
+              <div className="flex-1 flex flex-col justify-end">
+                <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-2">
+                  Enhance Prompt
+                </p>
+                <button
+                  onClick={() => setEnhancePrompt(!enhancePrompt)}
+                  className={`w-full border-2 px-3 py-2.5 text-xs font-black uppercase tracking-widest transition-colors ${
+                    enhancePrompt
+                      ? "border-[#7C3AED] bg-[#7C3AED]/5 text-[#7C3AED]"
+                      : "border-black/10 text-black/30 hover:border-black/20"
+                  }`}
+                >
+                  {enhancePrompt ? "ON" : "OFF"}
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Generate button */}
           <button
             onClick={handleGenerate}
@@ -491,7 +551,7 @@ export default function GenerateHiggsfield() {
 
           {!selectedSoulId && !generating && trainedModels.length > 0 && (
             <p className="text-[9px] text-[#7C3AED] font-bold text-center -mt-2 uppercase tracking-wide">
-              Selecione um modelo com Soul ID para continuar
+              Selecione um modelo com Character ID para continuar
             </p>
           )}
 
@@ -531,11 +591,11 @@ export default function GenerateHiggsfield() {
               <span className="text-5xl opacity-10">⚡</span>
               <div>
                 <p className="text-sm font-black uppercase tracking-tight text-black/25">
-                  Geração com Soul ID
+                  Geração com Character ID
                 </p>
                 <p className="text-xs text-black/20 font-medium mt-1 max-w-xs">
                   Selecione um modelo treinado, escreva um prompt e gere imagens
-                  com a identidade visual do seu Soul ID
+                  com a identidade visual do seu Character
                 </p>
               </div>
               <div className="text-[9px] text-black/20 font-medium border border-black/8 px-3 py-1.5">

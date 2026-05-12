@@ -3,6 +3,9 @@ class User < ApplicationRecord
 
   has_many :avatar_models, dependent: :destroy
   has_many :generations,   dependent: :destroy
+  has_many :credit_transactions, dependent: :destroy
+  has_many :credit_purchases, dependent: :destroy
+  has_many :generation_jobs, dependent: :destroy
 
   validates :name,     presence: true, length: { minimum: 2, maximum: 100 }
   validates :email,    presence: true, uniqueness: { case_sensitive: false },

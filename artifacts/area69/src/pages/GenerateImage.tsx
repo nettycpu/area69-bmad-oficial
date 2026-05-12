@@ -35,7 +35,7 @@ const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_ATTEMPTS = 60;
 
 export default function GenerateImage() {
-  const { state, addGeneration, updateModel, updateCredits, spendCredits } = useStore();
+  const { state, addGeneration, updateCredits } = useStore();
   const { t } = useI18n();
 
   // Qwen/WaveSpeed nao usa Soul ID — sem seletor de modelo treinado
@@ -84,6 +84,8 @@ export default function GenerateImage() {
     try {
       const res = await api.generate.imageStatus(predictionId);
 
+      if (res.credits !== undefined) updateCredits(res.credits);
+
       if (res.status === "completed" && res.outputs.length > 0) {
         stopPolling();
         setResults(res.outputs);
@@ -111,7 +113,7 @@ export default function GenerateImage() {
         } else {
           setGenError(errMsg || "A geração falhou. Seus créditos foram devolvidos.");
         }
-        refreshCredits();
+        if (res.credits === undefined) refreshCredits();
       } else {
         const statusLabel = res.status === "processing" ? "Processando" : "Aguardando";
         setGeneratingStatus(`${statusLabel}...`);
@@ -154,6 +156,7 @@ export default function GenerateImage() {
         seed: seed || "-1",
       });
 
+      if (res.credits !== undefined) updateCredits(res.credits);
       setGeneratingStatus("Gerando...");
       pollRef.current = setTimeout(
         () => pollStatus(res.prediction_id, 0),

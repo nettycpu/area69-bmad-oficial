@@ -9,7 +9,13 @@ module Api
       render json: { generations: generations.as_json }
     end
 
+    # Create restrito — apenas para admin/internal ou via generation_jobs
+    # Geracoes reais são criadas pelo backend quando provider status completed
     def create
+      unless internal_request?
+        return render_error("Geracoes sao criadas automaticamente apos geracao", :forbidden)
+      end
+
       gen_type = params[:type] || params[:generation_type]
       unless VALID_TYPES.include?(gen_type)
         return render_error("type must be 'image' or 'video'")
@@ -19,7 +25,6 @@ module Api
       generation.generation_type = gen_type
 
       if generation.save
-        update_generation_counts(gen_type)
         render json: { generation: generation.as_json }, status: :created
       else
         render_error(generation.errors.full_messages.join(", "))
@@ -40,9 +45,10 @@ module Api
       params.permit(:model_name, :prompt, :url, :seed, :width, :height)
     end
 
-    def update_generation_counts(gen_type)
-      column = gen_type == "image" ? :images_generated : :videos_generated
-      current_user.increment!(column)
+    def internal_request?
+      # Chamado pelo proprio backend ou admin com secret
+      request.headers["X-Internal-Secret"].present? &&
+        request.headers["X-Internal-Secret"] == ENV["INTERNAL_SECRET"]
     end
   end
 end

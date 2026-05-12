@@ -1,8 +1,9 @@
 class Generation < ApplicationRecord
   belongs_to :user
+  belongs_to :generation_job, optional: true
 
   ALLOWED_TYPES = %w[image video].freeze
-  ALLOWED_SCHEMES = %w[https http blob data].freeze
+  ALLOWED_SCHEMES = %w[https http].freeze
 
   validates :model_name,       presence: true
   validates :generation_type,  inclusion: { in: ALLOWED_TYPES }

@@ -1,7 +1,7 @@
 class StripeService
   class Error < StandardError; end
 
-  VALID_CREDIT_PACKS = [50, 150, 300, 600].freeze
+  VALID_CREDIT_PACKS = Pricing::CREDIT_PACKS
 
   PRICE_MAP = {
     50  => ENV.fetch("STRIPE_PRICE_50_CREDITS", ""),
@@ -32,9 +32,21 @@ class StripeService
       expires_at: (Time.now + 30 * 60).to_i,
     )
 
+    # Criar CreditPurchase pending — fonte de verdade
+    CreditPurchase.create!(
+      user: user,
+      stripe_checkout_session_id: session.id,
+      credits: credits,
+      status: "pending",
+      metadata: { amount_total: session.amount_total, currency: session.currency }
+    )
+
+    # Cache no user para compatibilidade, mas nao como fonte unica
     user.update!(stripe_checkout_session_id: session.id)
 
     { url: session.url, session_id: session.id }
+  rescue ActiveRecord::RecordInvalid => e
+    raise Error, "Erro ao registrar compra: #{e.message}"
   rescue Stripe::StripeError => e
     raise Error, "Stripe API error: #{e.message}"
   end
@@ -42,33 +54,74 @@ class StripeService
   # ── Processar Webhook checkout.session.completed ──────────────────────────
 
   def handle_checkout_completed(session)
-    user_id = session.metadata["user_id"]
-    credits = session.metadata["credits"].to_i
+    purchase = CreditPurchase.find_by(stripe_checkout_session_id: session.id)
 
-    raise Error, "Metadados invalidos na sessao — user_id ou credits ausentes" unless user_id.present? && credits > 0
+    unless purchase
+      # Fallback: tentar criar purchase a partir de metadados (webhook atrasado/recriado)
+      user_id = session.metadata["user_id"]
+      credits = session.metadata["credits"].to_i
+      raise Error, "Metadados invalidos — user_id ou credits ausentes" unless user_id.present? && credits > 0
+      raise Error, "Compra ja processada (nao encontrada por session_id mas pode ser duplicata)" if CreditPurchase.exists?(stripe_checkout_session_id: session.id)
 
-    user = User.find(user_id)
+      user = User.find(user_id)
+      purchase = CreditPurchase.create!(
+        user: user,
+        stripe_checkout_session_id: session.id,
+        stripe_payment_intent_id: session.payment_intent,
+        credits: credits,
+        status: "pending",
+        metadata: { amount_total: session.amount_total, currency: session.currency, recovered: true }
+      )
+    end
 
-    # Idempotencia: so processa se o session_id bater com o salvo no usuario
-    unless user.stripe_checkout_session_id == session.id
-      Rails.logger.warn("[Stripe] Sessao #{session.id} ja processada ou invalida para user #{user_id}")
-      return { user_id: user.id, credits_added: 0, session_id: session.id, duplicate: true }
+    # Idempotencia: se ja pago, nao somar de novo
+    if purchase.status == "paid"
+      Rails.logger.info("[Stripe] Purchase #{purchase.id} ja processada, ignorando duplicata")
+      return { user_id: purchase.user_id, credits_added: 0, session_id: session.id, duplicate: true }
     end
 
     ActiveRecord::Base.transaction do
-      user.increment!(:credits, credits)
-      user.update!(stripe_checkout_session_id: nil)
+      purchase.lock!
+
+      if purchase.status == "paid"
+        return { user_id: purchase.user_id, credits_added: 0, session_id: session.id, duplicate: true }
+      end
+
+      CreditLedger.add!(
+        user: purchase.user,
+        amount: purchase.credits,
+        kind: "purchase",
+        source: "stripe",
+        idempotency_key: "stripe:checkout_session_completed:#{session.id}",
+        reference: purchase,
+        metadata: {
+          session_id: session.id,
+          payment_intent: session.payment_intent,
+          amount_total: session.amount_total,
+          currency: session.currency
+        }
+      )
+
+      purchase.update!(
+        status: "paid",
+        stripe_payment_intent_id: session.payment_intent,
+        amount_total: session.amount_total,
+        currency: session.currency
+      )
+
+      # Limpar cache no user
+      purchase.user.update!(stripe_checkout_session_id: nil) if purchase.user.stripe_checkout_session_id == session.id
     end
 
-    Rails.logger.info("[Stripe] Creditos adicionados: user=#{user.id} +#{credits} session=#{session.id}")
-    { user_id: user.id, credits_added: credits, session_id: session.id }
+    Rails.logger.info("[Stripe] Creditos adicionados: user=#{purchase.user.id} +#{purchase.credits} session=#{session.id}")
+    { user_id: purchase.user.id, credits_added: purchase.credits, session_id: session.id }
   rescue ActiveRecord::RecordNotFound
     raise Error, "Usuario nao encontrado para sessao: #{session.id}"
   end
 
   private
 
-  # ── Find-or-Create Stripe Customer ─────────────────────────────────────────
+  # ── Find-or-Create Stripe Customer ────────────────────────────────────────
 
   def find_or_create_customer(user)
     customer = if user.stripe_customer_id.present?

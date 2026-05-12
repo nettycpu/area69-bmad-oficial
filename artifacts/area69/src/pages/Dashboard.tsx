@@ -29,7 +29,7 @@ export default function Dashboard() {
             <p className="text-xs text-white/70 font-medium mt-0.5">{t("dashboard.banner.desc")}</p>
           </div>
           <button
-            onClick={() => setLocation("/dashboard/checkout")}
+            onClick={() => setLocation("/dashboard/billing")}
             className="bg-white text-[#C0001A] px-6 py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-colors flex-shrink-0"
           >
             {t("dashboard.banner.cta")}

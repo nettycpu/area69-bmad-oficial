@@ -48,8 +48,15 @@ interface StoreContextValue {
   deleteModel: (id: string) => void;
   addGeneration: (gen: Generation) => void;
   deleteGeneration: (id: string) => void;
-  addCredits: (amount: number) => void;
-  spendCredits: (amount: number) => boolean;
+  /** APENAS DEV/ADMIN. NAO usar em fluxo normal de geracao.
+   * Faz POST /api/credits/add (requer CREDITS_SECRET no backend).
+   * Prefira updateCredits(balance) vindo da resposta do backend. */
+  devAddCreditsUnsafe: (amount: number) => void;
+  /** APENAS DEV/ADMIN. NAO usar em fluxo normal de geracao.
+   * Faz POST /api/credits/spend (requer CREDITS_SECRET no backend).
+   * Prefira updateCredits(balance) vindo da resposta do backend. */
+  devSpendCreditsUnsafe: (amount: number) => boolean;
+  /** Fonte central de verdade: atualiza saldo com valor vindo do backend */
   updateCredits: (balance: number) => void;
   updateProfile: (patch: Partial<UserProfile>) => void;
   resetAccount: () => void;
@@ -113,6 +120,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       .catch(console.error);
   }, []);
 
+  const addModelDirect = useCallback((model: Model) => {
+    setState((prev) => ({ ...prev, models: [model, ...prev.models] }));
+  }, []);
+
   const updateModel = useCallback((id: string, patch: Partial<Model>) => {
     setState((prev) => ({
       ...prev,
@@ -144,22 +155,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       generations: [gen, ...prev.generations].slice(0, MAX_GENERATIONS),
     }));
-
-    api.generations
-      .create({
-        model_name: gen.modelName,
-        type: gen.type,
-        prompt: gen.prompt,
-        url: gen.url,
-      })
-      .then((res) => {
-        const realGen = mapGeneration(res.generation);
-        setState((prev) => ({
-          ...prev,
-          generations: prev.generations.map((g) => (g.id === gen.id ? realGen : g)),
-        }));
-      })
-      .catch(console.error);
   }, []);
 
   const deleteGeneration = useCallback((id: string) => {
@@ -172,41 +167,38 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // ── Credits mutations ─────────────────────────────────────────────────────────
-  const addCredits = useCallback((amount: number) => {
+  // ── Credits mutations (APENAS DEV/ADMIN) ────────────────────────────────
+  // Fluxo normal de geracao usa updateCredits(balance) com valor do backend
+  const devAddCreditsUnsafe = useCallback((amount: number) => {
     const safeAmount = Math.max(0, Math.floor(amount));
-    setState((prev) => ({ ...prev, credits: prev.credits + safeAmount }));
     api.credits
       .add(safeAmount)
       .then((res) => setState((prev) => ({ ...prev, credits: res.balance })))
       .catch(console.error);
   }, []);
 
-  const spendCredits = useCallback((amount: number): boolean => {
-    let ok = false;
-    setState((prev) => {
-      if (prev.credits < amount) return prev;
-      ok = true;
-      return { ...prev, credits: prev.credits - amount };
-    });
-    if (ok) {
-      api.credits
-        .spend(amount)
-        .then((res) => setState((prev) => ({ ...prev, credits: res.balance })))
-        .catch(() =>
-          setState((prev) => ({ ...prev, credits: prev.credits + amount })),
-        );
-    }
-    return ok;
+  const devSpendCreditsUnsafe = useCallback((amount: number): boolean => {
+    api.credits
+      .spend(amount)
+      .then((res) => setState((prev) => ({ ...prev, credits: res.balance })))
+      .catch(() => {
+        refreshBalance();
+      });
+    return true;
   }, []);
 
   const updateCredits = useCallback((balance: number) => {
-    setState((prev) => ({ ...prev, credits: balance }));
+    if (typeof balance === "number" && !isNaN(balance)) {
+      setState((prev) => ({ ...prev, credits: balance }));
+    }
   }, []);
 
-  const addModelDirect = useCallback((model: Model) => {
-    setState((prev) => ({ ...prev, models: [model, ...prev.models] }));
-  }, []);
+  async function refreshBalance() {
+    try {
+      const res = await api.credits.balance();
+      updateCredits(res.balance);
+    } catch { /* silent */ }
+  }
 
   // ── Profile mutations ─────────────────────────────────────────────────────────
   const updateProfile = useCallback((patch: Partial<UserProfile>) => {
@@ -242,8 +234,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         deleteModel,
         addGeneration,
         deleteGeneration,
-        addCredits,
-        spendCredits,
+        devAddCreditsUnsafe,
+        devSpendCreditsUnsafe,
         updateCredits,
         updateProfile,
         resetAccount,
