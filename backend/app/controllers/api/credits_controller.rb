@@ -10,7 +10,7 @@ module Api
     end
 
     def add
-      verify_credits_secret!
+      return unless verify_credits_secret!
       amount = params[:amount].to_i
       return render_error("Amount must be positive") unless amount > 0
       return render_error("Amount exceeds maximum") if amount > MAX_CREDIT_ADD
@@ -32,7 +32,7 @@ module Api
     end
 
     def spend
-      verify_credits_secret!
+      return unless verify_credits_secret!
       amount = params[:amount].to_i
       return render_error("Amount must be positive") unless amount > 0
 
@@ -61,9 +61,25 @@ module Api
 
     def verify_credits_secret!
       secret = ENV["CREDITS_SECRET"]
-      return unless secret.present?
+
+      if secret.blank?
+        if Rails.env.production?
+          Rails.logger.error("[CREDITS] CREDITS_SECRET nao configurado em production!")
+          render_error("Credit admin endpoint not configured", :service_unavailable)
+          return false
+        else
+          # Development/test: permite sem secret para facilitar debug
+          return true
+        end
+      end
+
       provided = request.headers["X-Credits-Secret"]
-      render_error("Forbidden", :forbidden) unless provided == secret
+      unless provided == secret
+        render_error("Forbidden", :forbidden)
+        return false
+      end
+
+      true
     end
   end
 end

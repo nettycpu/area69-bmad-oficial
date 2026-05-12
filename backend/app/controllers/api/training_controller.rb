@@ -13,14 +13,16 @@ module Api
       return render_error("Envie pelo menos 10 fotos") if images.size < 10
       return render_error("Máximo de 30 fotos") if images.size > 30
 
-      # Build model record
+      # Upload imagens para R2 (antes de salvar — não persistir base64 no banco)
+      input_urls = upload_images_to_r2(name, images)
+
+      # Build model record (sem training_images base64)
       model = current_user.avatar_models.create!(
         name: name,
         style: "realistic",
-        cover: nil,
+        cover: input_urls.first,
         status: "training",
-        training_images_count: images.size,
-        training_images: images
+        training_images_count: images.size
       )
 
       job = current_user.generation_jobs.create!(
@@ -30,6 +32,7 @@ module Api
         status: "queued",
         cost_credits: TRAINING_COST,
         prompt: "Training: #{name}",
+        input_urls: input_urls,
         avatar_model: model,
         idempotency_key: "training:avatar_model:#{model.id}:#{SecureRandom.uuid}"
       )
@@ -125,6 +128,40 @@ module Api
       job&.update!(status: "failed", error_message: error_message, refunded_at: Time.current)
     rescue => e
       Rails.logger.error("[Training] Erro ao reembolsar: #{e.message}")
+    end
+
+    def upload_images_to_r2(label, image_data_urls)
+      public_host = ENV.fetch("R2_PUBLIC_URL_HOST")
+      bucket_name = ENV.fetch("R2_BUCKET")
+      raise "R2_PUBLIC_URL_HOST nao configurado" if public_host.blank?
+      raise "R2_BUCKET nao configurado" if bucket_name.blank?
+
+      s3 = Aws::S3::Resource.new(
+        region: "auto",
+        endpoint: ENV.fetch("R2_ENDPOINT"),
+        access_key_id: ENV.fetch("R2_ACCESS_KEY_ID"),
+        secret_access_key: ENV.fetch("R2_SECRET_ACCESS_KEY")
+      )
+
+      mime_to_ext = {
+        "image/jpeg" => "jpg", "image/png" => "png", "image/webp" => "webp",
+        "image/gif" => "gif", "image/avif" => "avif", "image/tiff" => "tiff",
+      }.freeze
+
+      bucket = s3.bucket(bucket_name)
+      keys = []
+
+      image_data_urls.each do |data_url|
+        mime = data_url[/^data:([^;]+);/, 1] || "image/png"
+        raw  = data_url.split(",", 2).second || data_url
+        decoded = Base64.decode64(raw)
+        ext = mime_to_ext[mime] || "jpg"
+        key = "training/#{label.parameterize}/#{SecureRandom.uuid}.#{ext}"
+        bucket.object(key).put(body: decoded, content_type: mime)
+        keys << key
+      end
+
+      keys.map { |key| "#{public_host}/#{key}" }
     end
 
     def model_json(model)

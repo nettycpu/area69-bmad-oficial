@@ -287,7 +287,6 @@ module Api
 
       provider_id = result[:request_id]
       job.update!(provider_request_id: provider_id, status: "submitted")
-      model.increment!(:images_generated)
 
       render json: {
         job_id: job.id,
@@ -376,6 +375,12 @@ module Api
           column = job.generation_type == "image" ? :images_generated : :videos_generated
           current_user.increment!(column, outputs.size)
           job.update!(metadata: job.metadata.merge("counters_updated" => true))
+        end
+
+        # Incrementar contador do avatar model (apenas Higgsfield image, uma vez)
+        if job.avatar_model.present? && job.generation_type == "image" && !job.metadata.dig("avatar_model_counter_updated")
+          job.avatar_model.increment!(:images_generated, outputs.size)
+          job.update!(metadata: job.metadata.merge("avatar_model_counter_updated" => true))
         end
       end
 
