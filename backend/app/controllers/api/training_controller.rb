@@ -57,16 +57,25 @@ module Api
       # images sao data URLs completas ex: "data:image/png;base64,iVBOR..."
       public_urls = upload_images_to_r2(model, images)
 
+      # Salvar cover imediatamente apos upload, antes mesmo do treino
+      model.update!(cover: public_urls.first) if public_urls.first.present?
+
       service = HiggsfieldService.new
       result  = service.train_soul(name: model.name, image_urls: public_urls)
 
-      Rails.logger.info("[Higgsfield] Submitted OK — request_id=#{result[:request_id]}")
-      if result[:request_id].present?
-        model.update!(
-          higgsfield_request_id: result[:request_id],
-          cover: public_urls.first
-        )
+      request_id   = result[:request_id]
+      reference_id = result[:reference_id]
+      result_status = result[:status]
+
+      Rails.logger.info("[Higgsfield] Submitted OK — request_id=#{request_id} reference_id=#{reference_id} status=#{result_status}")
+
+      updates = {}
+      updates[:higgsfield_request_id] = request_id if request_id.present?
+      updates[:soul_id] = reference_id if reference_id.present?
+      if result_status == "completed" || result_status == "ready"
+        updates[:status] = "ready"
       end
+      model.update!(updates) unless updates.empty?
     rescue => e
       status_code = e.respond_to?(:status_code) ? e.status_code : "N/A"
       clean_error = e.message.to_s.gsub(/https:\/\/[^\s,]+/, '[URL_REMOVED]')
@@ -121,29 +130,39 @@ module Api
     end
 
     def poll_higgsfield_status(model)
-      result = HiggsfieldService.new.training_status(model.higgsfield_request_id)
+      lookup_id = model.higgsfield_request_id || model.soul_id
+      return unless lookup_id.present?
+
+      result = HiggsfieldService.new.training_status(lookup_id)
       reference_id = result[:reference_id]
 
       case result[:status]
       when "completed"
-        if reference_id.present?
-          model.update!(
-            status: "ready",
-            soul_id: reference_id.to_s
-          )
-        else
-          Rails.logger.error("[Higgsfield] Falha critica: API retornou completed sem reference_id. Resposta: #{result[:raw_body].inspect}")
-          model.update!(status: "failed")
+        updates = { status: "ready" }
+        updates[:soul_id] = reference_id.to_s if reference_id.present?
+        updates[:higgsfield_request_id] = result[:request_id] if result[:request_id].present?
+        model.update!(updates)
+      when "training"
+        # Ainda treinando — apenas atualiza soul_id se veio na resposta
+        updates = {}
+        updates[:soul_id] = reference_id.to_s if reference_id.present? && model.soul_id.blank?
+        updates[:higgsfield_request_id] = result[:request_id] if result[:request_id].present? && model.higgsfield_request_id.blank?
+        model.update!(updates) unless updates.empty?
+      when "failed"
+        # Evitar reembolso duplicado — so reembolsar se nao estava ja como failed
+        was_already_failed = model.status == "failed"
+        model.update!(status: "failed")
+        unless was_already_failed
           model.user&.increment!(:credits, TRAINING_COST)
         end
-      when "failed", "nsfw"
-        model.update!(status: "failed")
-        model.user&.increment!(:credits, TRAINING_COST)
       end
     rescue => e
       Rails.logger.error("[Higgsfield] Poll error: #{e.class} — #{e.message}")
+      was_already_failed = model.status == "failed"
       model.update!(status: "failed")
-      model.user&.increment!(:credits, TRAINING_COST)
+      unless was_already_failed
+        model.user&.increment!(:credits, TRAINING_COST)
+      end
     end
 
     def model_json(model)

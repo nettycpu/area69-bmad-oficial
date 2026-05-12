@@ -47,9 +47,9 @@ function ModelCard({ model, onDelete, onStatusUpdate }: {
       exit={{ opacity: 0, scale: 0.9 }}
       className="bg-white border border-black/8 overflow-hidden group hover:border-[#C0001A] transition-colors"
     >
-      <div className="aspect-[4/3] bg-black/5 relative overflow-hidden">
+      <div className="aspect-[3/4] bg-black/5 relative overflow-hidden">
         {model.cover ? (
-          <img src={model.cover} alt={model.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          <img src={model.cover} alt={model.name} className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500" />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
             <span className="text-4xl opacity-10">◈</span>
@@ -69,15 +69,20 @@ function ModelCard({ model, onDelete, onStatusUpdate }: {
         </div>
 
         {model.status === "training" && (
-          <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-3 p-4">
-            <div className="w-10 h-10 border-4 border-white/20 border-t-white rounded-full animate-spin" />
-            <p className="text-white text-[10px] font-black uppercase tracking-widest">{t("models.status.inTraining")}</p>
-            <p className="text-white/50 text-[9px] font-medium text-center">Soul ID · Higgsfield</p>
-            <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden">
-              <div className="h-full bg-[#C0001A] animate-pulse w-2/3" />
+          <>
+            {model.cover && (
+              <img src={model.cover} alt={model.name} className="absolute inset-0 w-full h-full object-cover object-top opacity-30" />
+            )}
+            <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-3 p-4">
+              <div className="w-10 h-10 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+              <p className="text-white text-[10px] font-black uppercase tracking-widest">{t("models.status.inTraining")}</p>
+              <p className="text-white/50 text-[9px] font-medium text-center">Soul ID · Higgsfield</p>
+              <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden">
+                <div className="h-full bg-[#C0001A] animate-pulse w-2/3" />
+              </div>
+              <p className="text-white/40 text-[9px] font-medium">~20 min</p>
             </div>
-            <p className="text-white/40 text-[9px] font-medium">~20 min</p>
-          </div>
+          </>
         )}
 
         {model.status === "failed" && (
@@ -106,7 +111,7 @@ function ModelCard({ model, onDelete, onStatusUpdate }: {
 
         <div className="flex gap-2 mt-3">
           {model.status === "ready" && (
-            <Link href="/dashboard/generate"
+            <Link href={`/dashboard/higgsfield?model=${model.id}`}
               className="flex-1 bg-[#C0001A] text-white py-2 text-[9px] font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors text-center">
               {t("models.useModel")}
             </Link>
@@ -283,7 +288,7 @@ function NewModelModal({ onClose, onCreated, availableCredits }: {
                   <div className="bg-red-50 border border-red-200 px-4 py-3 mb-4">
                     <p className="text-xs font-bold text-red-600">Créditos insuficientes</p>
                     <p className="text-[11px] text-red-500 mt-0.5">Você tem {availableCredits} créditos. O treinamento custa {TRAINING_COST} créditos.</p>
-                    <Link href="/dashboard/checkout" className="text-[11px] font-black text-[#C0001A] uppercase tracking-widest mt-2 block hover:underline">
+                    <Link href="/dashboard/billing" className="text-[11px] font-black text-[#C0001A] uppercase tracking-widest mt-2 block hover:underline">
                       → Comprar créditos
                     </Link>
                   </div>

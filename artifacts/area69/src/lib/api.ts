@@ -40,9 +40,12 @@ export interface ApiGeneration {
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  data?: Record<string, unknown>;
+
+  constructor(message: string, status: number, data?: Record<string, unknown>) {
     super(message);
     this.status = status;
+    this.data = data;
     this.name = "ApiError";
   }
 }
@@ -63,7 +66,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const body = await res.json().catch(() => ({ error: "Request failed" }));
 
   if (!res.ok) {
-    throw new ApiError(body.error ?? `HTTP ${res.status}`, res.status);
+    throw new ApiError(body.error ?? `HTTP ${res.status}`, res.status, body);
   }
 
   return body as T;
@@ -197,8 +200,10 @@ export const api = {
       prompt: string;
       images?: string[];
       seed?: string;
+      aspect_ratio?: string;
+      resolution?: string;
     }) =>
-      request<{ prediction_id: string; status: string }>(
+      request<{ prediction_id: string; status: string; credits?: number }>(
         "/generate/higgsfield",
         { method: "POST", body: JSON.stringify(data) },
       ),

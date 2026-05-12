@@ -1,10 +1,9 @@
 import React, { useState, useRef } from "react";
-import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useStore } from "@/lib/useStore";
 import { useI18n } from "@/lib/I18nContext";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import type { Generation } from "@/lib/store";
 
 const RESOLUTIONS = [
@@ -39,8 +38,7 @@ export default function GenerateImage() {
   const { state, addGeneration, updateModel, updateCredits, spendCredits } = useStore();
   const { t } = useI18n();
 
-  const readyModels = state.models.filter((m) => m.status === "ready");
-  const [selectedModel, setSelectedModel] = useState<string>(readyModels[0]?.id ?? "");
+  // Qwen/WaveSpeed nao usa Soul ID — sem seletor de modelo treinado
   const [prompt, setPrompt] = useState("");
   const [referenceImage, setReferenceImage] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState("1:1");
@@ -92,12 +90,11 @@ export default function GenerateImage() {
         setGenerating(false);
         setGenError(null);
 
-        const model = state.models.find((m) => m.id === selectedModel);
         res.outputs.forEach((url) => {
           const gen: Generation = {
             id: crypto.randomUUID(),
-            modelId: selectedModel || "",
-            modelName: model?.name ?? "Qwen Image 2.0 Pro",
+            modelId: "",
+            modelName: "Qwen Image 2.0 Pro",
             url,
             type: "image",
             prompt: lastPrompt,
@@ -105,15 +102,15 @@ export default function GenerateImage() {
           };
           addGeneration(gen);
         });
-        if (model && selectedModel) {
-          updateModel(selectedModel, {
-            imagesGenerated: (model.imagesGenerated ?? 0) + res.outputs.length,
-          });
-        }
       } else if (res.status === "failed") {
         stopPolling();
         setGenerating(false);
-        setGenError(res.error ?? "A geração falhou. Seus créditos foram devolvidos.");
+        const errMsg = res.error ?? "";
+        if (errMsg.toLowerCase().includes("insufficient") || errMsg.toLowerCase().includes("top up") || errMsg.toLowerCase().includes("balance")) {
+          setGenError("Serviço de imagem temporariamente indisponível: saldo do provedor insuficiente.");
+        } else {
+          setGenError(errMsg || "A geração falhou. Seus créditos foram devolvidos.");
+        }
         refreshCredits();
       } else {
         const statusLabel = res.status === "processing" ? "Processando" : "Aguardando";
@@ -163,10 +160,21 @@ export default function GenerateImage() {
         POLL_INTERVAL_MS,
       );
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erro ao iniciar geração";
       setGenerating(false);
-      setGenError(msg + " — seus créditos foram devolvidos.");
-      refreshCredits();
+      if (err instanceof ApiError && typeof err.data?.credits === "number") {
+        updateCredits(err.data.credits);
+      } else {
+        await refreshCredits();
+      }
+      const msg = err instanceof Error ? err.message : "Erro ao iniciar geração";
+      const status = err instanceof ApiError ? err.status : 0;
+      if (status === 502 || status === 503) {
+        setGenError("Serviço de imagem temporariamente indisponível. Tente novamente depois.");
+      } else if (msg.toLowerCase().includes("insufficient") || msg.toLowerCase().includes("top up") || msg.toLowerCase().includes("provedor") || msg.toLowerCase().includes("saldo")) {
+        setGenError("Serviço de imagem temporariamente indisponível: saldo do provedor insuficiente.");
+      } else {
+        setGenError(msg + " — seus créditos foram devolvidos.");
+      }
     }
   }
 
@@ -187,41 +195,13 @@ export default function GenerateImage() {
           </div>
 
 
-          {/* Model selector — opcional */}
           <div className="bg-white border border-black/8 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[9px] font-black uppercase tracking-widest text-black/40">{t("generateImage.model")}</p>
-              <span className="text-[8px] font-bold text-black/25 uppercase tracking-widest border border-black/10 px-1.5 py-0.5">Opcional</span>
-            </div>
-            {readyModels.length === 0 ? (
-              <div className="border border-dashed border-black/10 p-3 text-center">
-                <p className="text-[9px] font-medium text-black/25">Nenhum modelo treinado — será integrado futuramente</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {readyModels.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setSelectedModel(m.id)}
-                    className={`flex items-center gap-3 p-2.5 border-2 transition-colors text-left ${
-                      selectedModel === m.id ? "border-[#C0001A] bg-[#C0001A]/5" : "border-black/8 hover:border-black/20"
-                    }`}
-                  >
-                    <div className="w-9 h-9 bg-black/5 flex-shrink-0 overflow-hidden">
-                      {m.cover
-                        ? <img src={m.cover} alt={m.name} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center text-black/20 text-lg">◈</div>
-                      }
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-black uppercase tracking-tight text-black leading-none">{m.name}</p>
-                      <p className="text-[9px] text-black/40 font-medium mt-0.5">{m.imagesGenerated} {t("generateImage.imagesGenerated")}</p>
-                    </div>
-                    {selectedModel === m.id && <span className="ml-auto text-[#C0001A] text-sm font-black">✓</span>}
-                  </button>
-                ))}
-              </div>
-            )}
+            <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-1">
+              Qwen Image 2.0 Pro não usa Soul ID
+            </p>
+            <p className="text-[9px] text-black/25 font-medium">
+              Para usar seu modelo treinado (Natty), vá em <a href="/dashboard/higgsfield" className="text-[#C0001A] font-black hover:underline">Soul 2.0</a>
+            </p>
           </div>
 
           {/* Reference image — REQUIRED for Qwen */}

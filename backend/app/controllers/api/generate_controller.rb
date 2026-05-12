@@ -1,5 +1,7 @@
 require "net/http"
 require "json"
+require "aws-sdk-s3"
+require "securerandom"
 
 module Api
   class GenerateController < ApplicationController
@@ -63,7 +65,8 @@ module Api
         render json: { prediction_id: data["id"], status: data["status"] }
       else
         current_user.increment!(:credits, COST_PER_IMAGE)
-        render_error(body["message"] || body["error"] || "WaveSpeed API error", :bad_gateway)
+        error_msg = provider_friendly_error(body)
+        render_error(error_msg, :bad_gateway)
       end
     rescue => e
       current_user.increment!(:credits, COST_PER_IMAGE)
@@ -162,10 +165,12 @@ module Api
     # ─────────────────────────── Higgsfield AI ─────────────────────────────
 
     def create_higgsfield
-      model_id = params[:model_id].to_s
-      prompt   = params[:prompt].to_s.strip
-      images   = Array(params[:images])
-      seed     = params[:seed]
+      model_id     = params[:model_id].to_s
+      prompt       = params[:prompt].to_s.strip
+      images       = Array(params[:images])
+      seed         = params[:seed]
+      aspect_ratio = params[:aspect_ratio].to_s.presence || "9:16"
+      resolution   = params[:resolution].to_s.presence || "720p"
 
       return render_error("Modelo é obrigatório") if model_id.blank?
 
@@ -175,6 +180,12 @@ module Api
       return render_error("Prompt é obrigatório") if prompt.blank?
       return render_error("Máximo de 6 imagens de referência") if images.size > 6
 
+      # Se imagens forem data URLs (base64), fazer upload para R2 primeiro
+      if images.any? { |img| img.start_with?("data:") }
+        public_urls = upload_images_to_r2(model, images)
+        images = public_urls
+      end
+
       # Deduct credits atomically
       updated = User.where(id: current_user.id)
                     .where("credits >= ?", COST_PER_IMAGE)
@@ -182,18 +193,33 @@ module Api
       return render_error("Créditos insuficientes", :payment_required) if updated == 0
 
       options = {}
-      options[:images] = images if images.any?
-      options[:seed]   = seed.to_i if seed.present? && seed.to_s != "-1"
+      options[:images]       = images if images.any?
+      options[:seed]         = seed.to_i if seed.present? && seed.to_s != "-1"
+      options[:aspect_ratio] = aspect_ratio
+      options[:resolution]   = resolution
 
       service = HiggsfieldService.new
       result  = service.generate_image(soul_id: model.soul_id, prompt: prompt, **options)
 
       model.increment!(:images_generated)
 
-      render json: { prediction_id: result[:request_id], status: result[:status] }
+      render json: {
+        prediction_id: result[:request_id],
+        status: result[:status],
+        credits: current_user.reload.credits
+      }
     rescue HiggsfieldService::APIError => e
       current_user.increment!(:credits, COST_PER_IMAGE)
-      render_error("Higgsfield API error: #{e.message}", :bad_gateway)
+      credits = current_user.reload.credits
+      msg = e.message.to_s
+      if msg.downcase.include?("model not found") || msg.downcase.include?("custom reference nao encontrado")
+        render json: {
+          error: "Modelo Higgsfield não encontrado para geração. O Soul ID pode pertencer a outra conta/API key ou o endpoint de geração precisa ser ajustado.",
+          credits: credits
+        }, status: :bad_gateway
+      else
+        render json: { error: msg, credits: credits }, status: :bad_gateway
+      end
     rescue HiggsfieldService::TimeoutError => e
       current_user.increment!(:credits, COST_PER_IMAGE)
       render_error(e.message, :gateway_timeout)
@@ -262,6 +288,62 @@ module Api
 
       resp = http.request(req)
       [JSON.parse(resp.body), resp.code.to_i]
+    end
+
+    # Retorna mensagem amigavel quando o provedor (WaveSpeed) esta sem saldo
+    def provider_friendly_error(body)
+      raw = body["message"].to_s + " " + body["error"].to_s
+      raw_down = raw.downcase
+      if raw_down.include?("insufficient credits") || raw_down.include?("top up") || raw_down.include?("insufficient balance")
+        "Serviço de imagem temporariamente indisponível: saldo do provedor insuficiente."
+      else
+        body["message"] || body["error"] || "WaveSpeed API error"
+      end
+    end
+
+    # Upload de imagens base64 para R2 (compartilhado com TrainingController)
+    def upload_images_to_r2(model, images)
+      public_host = ENV.fetch("R2_PUBLIC_URL_HOST")
+      bucket_name = ENV.fetch("R2_BUCKET")
+      raise "R2_PUBLIC_URL_HOST nao configurado" if public_host.blank?
+      raise "R2_BUCKET nao configurado" if bucket_name.blank?
+
+      s3 = Aws::S3::Resource.new(
+        region: "auto",
+        endpoint: ENV.fetch("R2_ENDPOINT"),
+        access_key_id: ENV.fetch("R2_ACCESS_KEY_ID"),
+        secret_access_key: ENV.fetch("R2_SECRET_ACCESS_KEY")
+      )
+
+      mime_to_ext = {
+        "image/jpeg" => "jpg",
+        "image/png"  => "png",
+        "image/webp" => "webp",
+        "image/gif"  => "gif",
+        "image/avif" => "avif",
+        "image/tiff" => "tiff",
+      }.freeze
+
+      bucket = s3.bucket(bucket_name)
+      keys = []
+
+      images.each_with_index do |data_url, index|
+        mime = data_url[/^data:([^;]+);/, 1] || "image/png"
+        raw  = data_url.split(",", 2).second || data_url
+        decoded = Base64.decode64(raw)
+        ext = mime_to_ext[mime] || "jpg"
+
+        key = "generate/#{model.id}/#{SecureRandom.uuid}.#{ext}"
+
+        bucket.object(key).put(
+          body: decoded,
+          content_type: mime
+        )
+
+        keys << key
+      end
+
+      keys.map { |key| "#{public_host}/#{key}" }
     end
   end
 end

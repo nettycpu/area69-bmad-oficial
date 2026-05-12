@@ -1,9 +1,10 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useStore } from "@/lib/useStore";
 import { useI18n } from "@/lib/I18nContext";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import type { Generation } from "@/lib/store";
 
 const MAX_REF_FILE_BYTES = 10 * 1024 * 1024;
@@ -14,17 +15,32 @@ const MAX_POLL_ATTEMPTS = 60;
 export default function GenerateHiggsfield() {
   const { state, addGeneration, updateModel, updateCredits } = useStore();
   const { t } = useI18n();
+  const [location] = useLocation();
 
   const trainedModels = state.models.filter(
     (m) => m.status === "ready" && m.soulId,
   );
-  const [selectedModel, setSelectedModel] = useState<string>(
-    trainedModels[0]?.id ?? "",
-  );
+
+  // Pre-selecionar modelo com base no query param ?model=<id>
+  const modelParam = new URLSearchParams(location.split("?")[1] || "").get("model");
+  const initialModel = modelParam && trainedModels.find((m) => m.id === modelParam)
+    ? modelParam
+    : trainedModels[0]?.id ?? "";
+
+  const [selectedModel, setSelectedModel] = useState<string>(initialModel);
+
+  // Se o modelo da URL ainda nao estava carregado, atualiza quando disponivel
+  useEffect(() => {
+    if (modelParam && trainedModels.find((m) => m.id === modelParam) && selectedModel !== modelParam) {
+      setSelectedModel(modelParam);
+    }
+  }, [modelParam, trainedModels, selectedModel]);
   const [prompt, setPrompt] = useState("");
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const refInputRef = useRef<HTMLInputElement>(null);
   const [seed, setSeed] = useState<string>("");
+  const [aspectRatio, setAspectRatio] = useState<string>("9:16");
+  const [resolution, setResolution] = useState<string>("720p");
   const [generating, setGenerating] = useState(false);
   const [generatingStatus, setGeneratingStatus] = useState<string>("");
   const [results, setResults] = useState<string[]>([]);
@@ -105,7 +121,12 @@ export default function GenerateHiggsfield() {
       } else if (res.status === "failed") {
         stopPolling();
         setGenerating(false);
-        setGenError(res.error ?? "A geração falhou. Seus créditos foram devolvidos.");
+        const errMsg = res.error ?? "";
+        if (errMsg.toLowerCase().includes("insufficient") || errMsg.toLowerCase().includes("top up") || errMsg.toLowerCase().includes("balance")) {
+          setGenError("Serviço de geração temporariamente indisponível: saldo do provedor insuficiente.");
+        } else {
+          setGenError(errMsg || "A geração falhou. Seus créditos foram devolvidos.");
+        }
         refreshCredits();
       } else {
         const statusLabel = res.status === "processing" ? "Processando" : "Aguardando";
@@ -146,7 +167,12 @@ export default function GenerateHiggsfield() {
         prompt: currentPrompt,
         images: referenceImages.length > 0 ? referenceImages : undefined,
         seed: seed || undefined,
+        aspect_ratio: aspectRatio,
+        resolution,
       });
+
+      // Se o backend retornou credits atualizado, sincronizar
+      if (res.credits !== undefined) updateCredits(res.credits);
 
       setGeneratingStatus("Gerando...");
       pollRef.current = setTimeout(
@@ -154,10 +180,34 @@ export default function GenerateHiggsfield() {
         POLL_INTERVAL_MS,
       );
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erro ao iniciar geração";
       setGenerating(false);
-      setGenError(msg + " — seus créditos foram devolvidos.");
-      refreshCredits();
+
+      // Se o backend retornou credits atualizado (ex: apos reembolso), sincronizar
+      if (err instanceof ApiError && typeof err.data?.credits === "number") {
+        updateCredits(err.data.credits);
+      } else {
+        try { const c = await api.credits.balance(); updateCredits(c.balance); } catch { /* silent */ }
+      }
+
+      const msg = err instanceof Error ? err.message : "Erro ao iniciar geração";
+      const status = err instanceof ApiError ? err.status : 0;
+
+      // Erro 502/503 = provedor indisponivel
+      if (status === 502 || status === 503) {
+        setGenError("Serviço de geração temporariamente indisponível. Tente novamente depois.");
+      }
+      // Mensagem ja amigavel do backend — mostrar direto
+      else if (msg.includes("Higgsfield") || msg.includes("Modelo") || msg.includes("provedor") || msg.includes("indispon")) {
+        setGenError(msg);
+      }
+      // Erro de provedor (insufficient, saldo)
+      else if (msg.toLowerCase().includes("insufficient") || msg.toLowerCase().includes("saldo")) {
+        setGenError("Serviço de geração temporariamente indisponível: saldo do provedor insuficiente.");
+      }
+      // Outros erros com reembolso
+      else {
+        setGenError(msg + " — seus créditos foram devolvidos.");
+      }
     }
   }
 
@@ -387,6 +437,38 @@ export default function GenerateHiggsfield() {
             <p className="text-[8px] text-black/25 font-medium mt-2">
               Mesmo seed + mesmo prompt = resultados consistentes
             </p>
+          </div>
+
+          {/* Aspect Ratio & Resolution */}
+          <div className="bg-white border border-black/8 p-4">
+            <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-3">
+              Proporção & Resolução
+            </p>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <select
+                  value={aspectRatio}
+                  onChange={(e) => setAspectRatio(e.target.value)}
+                  className="w-full border-2 border-black/10 focus:border-[#7C3AED] outline-none px-3 py-2.5 text-xs font-medium text-black bg-white transition-colors"
+                >
+                  <option value="1:1">1:1 (Quadrado)</option>
+                  <option value="3:4">3:4 (Retrato)</option>
+                  <option value="4:5">4:5 (Instagram)</option>
+                  <option value="9:16">9:16 (Story)</option>
+                  <option value="16:9">16:9 (Paisagem)</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <select
+                  value={resolution}
+                  onChange={(e) => setResolution(e.target.value)}
+                  className="w-full border-2 border-black/10 focus:border-[#7C3AED] outline-none px-3 py-2.5 text-xs font-medium text-black bg-white transition-colors"
+                >
+                  <option value="720p">720p</option>
+                  <option value="1080p">1080p</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Generate button */}
