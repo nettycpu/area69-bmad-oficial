@@ -161,7 +161,7 @@ export const api = {
       resolution?: string;
       seed?: string;
     }) =>
-      request<{ prediction_id: string; status: string; job_id?: number; credits?: number }>("/generate/image", {
+      request<{ prediction_id: string; status: string; job_id?: number; credits?: number; outputs?: string[] }>("/generate/image", {
         method: "POST",
         body: JSON.stringify(data),
       }),
@@ -179,7 +179,7 @@ export const api = {
       camera_fixed?: boolean;
       seed?: string;
     }) =>
-      request<{ prediction_id: string; status: string; job_id?: number; credits?: number }>("/generate/video", {
+      request<{ prediction_id: string; status: string; job_id?: number; credits?: number; outputs?: string[] }>("/generate/video", {
         method: "POST",
         body: JSON.stringify(data),
       }),

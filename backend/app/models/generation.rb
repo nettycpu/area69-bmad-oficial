@@ -1,20 +1,25 @@
 class Generation < ApplicationRecord
+  self.inheritance_column = nil
+
   belongs_to :user
   belongs_to :generation_job, optional: true
 
   ALLOWED_TYPES = %w[image video].freeze
   ALLOWED_SCHEMES = %w[https http].freeze
 
-  validates :model_name,       presence: true
+  validates :model_label,     presence: true
   validates :generation_type,  inclusion: { in: ALLOWED_TYPES }
   validates :prompt,           presence: true
   validates :url,              presence: true
   validate  :url_scheme_safe
 
   def as_json(options = {})
-    super(options.merge(except: %i[user_id]))
-      .merge("type" => generation_type)
-      .tap { |h| h.delete("generation_type") }
+    data = super(options.merge(except: %i[user_id]))
+    data["type"] = generation_type
+    data["model_name"]  = model_label
+    data["modelName"]   = model_label
+    data.delete("generation_type")
+    data
   end
 
   private

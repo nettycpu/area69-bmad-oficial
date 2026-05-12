@@ -42,7 +42,9 @@ module Api
     private
 
     def generation_params
-      params.permit(:model_name, :prompt, :url, :seed, :width, :height)
+      permitted = params.permit(:model_label, :model_name, :prompt, :url, :seed, :width, :height)
+      permitted[:model_label] ||= permitted.delete(:model_name) if permitted[:model_name]
+      permitted
     end
 
     def internal_request?

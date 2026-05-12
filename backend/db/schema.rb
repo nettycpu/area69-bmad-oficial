@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_12_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_12_000003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -106,7 +106,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_000002) do
     t.bigint "generation_job_id"
     t.string "generation_type", null: false
     t.integer "height"
-    t.string "model_name", null: false
+    t.string "model_label", null: false
     t.text "prompt", null: false
     t.string "provider"
     t.string "provider_model"

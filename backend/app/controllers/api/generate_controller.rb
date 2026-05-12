@@ -45,7 +45,7 @@ module Api
 
     def create_image
       api_key = ENV["WAVESPEED_API_KEY"]
-      return render_error("Serviço de geração não configurado", :service_unavailable) unless api_key.present?
+      return render_error("Servico de geracao nao configurado", :service_unavailable) unless api_key.present?
 
       prompt = params[:prompt].to_s.strip
       images = Array(params[:images])
@@ -53,9 +53,9 @@ module Api
       res    = params[:resolution].to_s
       seed   = params[:seed]
 
-      return render_error("Prompt é obrigatório") if prompt.blank?
-      return render_error("Imagem de referência é obrigatória") if images.empty?
-      return render_error("Máximo de 6 imagens de referência") if images.size > 6
+      return render_error("Prompt e obrigatorio") if prompt.blank?
+      return render_error("Imagem de referencia e obrigatoria") if images.empty?
+      return render_error("Maximo de 6 imagens de referencia") if images.size > 6
       PromptSafetyService.check!(prompt)
 
       size = SIZE_MAP[[aspect, res]] || "1024*1024"
@@ -74,7 +74,6 @@ module Api
         idempotency_key: "gen:image:#{SecureRandom.uuid}"
       )
 
-      # Cobrar
       CreditLedger.spend!(
         user: current_user,
         amount: Pricing::QWEN_IMAGE,
@@ -82,69 +81,105 @@ module Api
         idempotency_key: "generation_job:#{job.id}:charge",
         reference: job
       )
-      job.update!(charged_at: Time.current)
+      job.update!(charged_at: Time.current, status: "processing")
 
       payload = { prompt: prompt, images: images, size: size }
       payload[:seed] = seed.to_i if seed.present? && seed.to_s != "-1"
 
-      body, status = wavespeed_post("#{WAVESPEED_API_BASE}/#{QWEN_MODEL}", payload, api_key)
+      body, status_code = wavespeed_post("#{WAVESPEED_API_BASE}/#{QWEN_MODEL}", payload, api_key)
 
-      if status == 200
-        data = body["data"] || body
-        provider_id = data["id"]
-        job.update!(provider_request_id: provider_id, status: "submitted")
-        render json: {
-          job_id: job.id,
-          prediction_id: provider_id,
-          status: job.status,
-          credits: current_user.reload.credits
-        }
-      else
+      if status_code != 200
         refund_job(job)
         error_msg = provider_friendly_error(body)
         render json: { error: error_msg, credits: current_user.reload.credits }, status: :bad_gateway
+        return
+      end
+
+      normalized = normalize_wavespeed_payload(body)
+      job.update!(provider_request_id: normalized[:provider_id])
+
+      if normalized[:status] == "completed" && normalized[:outputs].any?
+        result = complete_job!(job, outputs: normalized[:outputs])
+        render json: {
+          job_id: job.id,
+          prediction_id: normalized[:provider_id],
+          status: result[:status],
+          outputs: result[:outputs],
+          credits: result[:credits]
+        }
+      else
+        job.update!(status: "submitted")
+        render json: {
+          job_id: job.id,
+          prediction_id: normalized[:provider_id],
+          status: job.status,
+          credits: current_user.reload.credits
+        }
       end
     rescue CreditLedger::InsufficientCredits
-      render_error("Créditos insuficientes", :payment_required)
+      render_error("Creditos insuficientes", :payment_required)
     rescue ActiveRecord::RecordInvalid => e
       render_error(e.message)
     end
 
     def image_status
       job = find_job(params[:id])
-      return render_error("Job não encontrado", :not_found) unless job
-      return status_response(job) if terminal_status_response(job)
+      return render_error("Job nao encontrado", :not_found) unless job
+      if terminal_status_response(job)
+        ensure_generation_history!(job) if job.status == "completed"
+        return render json: status_payload(job)
+      end
 
       api_key = ENV["WAVESPEED_API_KEY"]
-      return render_error("Serviço de geração não configurado", :service_unavailable) unless api_key.present?
-      return status_response(job) if job.provider_request_id.blank?
+      return render_error("Servico de geracao nao configurado", :service_unavailable) unless api_key.present?
+      return render json: status_payload(job) if job.provider_request_id.blank?
+
+      Rails.logger.info("[GenerateStatus] job=#{job.id} provider=#{job.provider} request=#{job.provider_request_id} status=#{job.status}")
 
       body, status_code = wavespeed_get("#{WAVESPEED_API_BASE}/predictions/#{job.provider_request_id}/result", api_key)
+      normalized = normalize_wavespeed_payload(body)
 
       case status_code
       when 200
-        data = body["data"] || body
-        process_completed(job, data)
+        if normalized[:status] == "completed" && normalized[:outputs].any?
+          Rails.logger.info("[GenerateStatus] provider completed job=#{job.id} outputs=#{normalized[:outputs].size}")
+          result = complete_job!(job, outputs: normalized[:outputs])
+          render json: {
+            status: result[:status],
+            outputs: result[:outputs],
+            credits: result[:credits]
+          }
+        elsif normalized[:status] == "failed"
+          render json: fail_job!(job, normalized[:error] || "Provider returned failed status")
+        else
+          mark_processing!(job)
+          render json: processing_payload(job)
+        end
       when 404, 429, 502, 503
         Rails.logger.warn("[WaveSpeed] Status #{status_code} transitorio para job #{job.id}")
-        processing_response(job, status_code)
+        mark_processing!(job)
+        render json: processing_payload(job)
       else
-        if body["status"].to_s == "failed" || body["error"].to_s.present?
-          process_failed(job, body["error"] || body["message"] || "Provider returned error")
+        if normalized[:status] == "failed" || normalized[:error].present?
+          render json: fail_job!(job, normalized[:error] || "Provider returned error")
         else
-          processing_response(job, status_code)
+          mark_processing!(job)
+          render json: processing_payload(job)
         end
       end
+    rescue Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET, JSON::ParserError => e
+      Rails.logger.warn("[WaveSpeed] Transient error para job #{job&.id}: #{e.class} — #{e.message[0..200]}")
+      mark_processing!(job) if job
+      render json: processing_payload(job)
     rescue => e
-      Rails.logger.error("[WaveSpeed] Erro inesperado image_status: #{e.class} — #{e.message[0..200]}")
-      processing_response(job, nil)
+      internal_error_response(job, e)
     end
 
     # ─────────────────────────── Seedance Video ─────────────────────────────
 
     def create_video
       api_key = ENV["WAVESPEED_API_KEY"]
-      return render_error("Serviço de geração não configurado", :service_unavailable) unless api_key.present?
+      return render_error("Servico de geracao nao configurado", :service_unavailable) unless api_key.present?
 
       prompt         = params[:prompt].to_s.strip
       image          = params[:image].to_s
@@ -155,8 +190,8 @@ module Api
       camera_fixed   = params[:camera_fixed] == true
       seed           = params[:seed]
 
-      return render_error("Prompt é obrigatório") if prompt.blank?
-      return render_error("Imagem de referência é obrigatória") if image.blank?
+      return render_error("Prompt e obrigatorio") if prompt.blank?
+      return render_error("Imagem de referencia e obrigatoria") if image.blank?
       PromptSafetyService.check!(prompt)
 
       job = current_user.generation_jobs.create!(
@@ -175,7 +210,6 @@ module Api
         idempotency_key: "gen:video:#{SecureRandom.uuid}"
       )
 
-      # Cobrar
       CreditLedger.spend!(
         user: current_user,
         amount: Pricing::SEEDANCE_VIDEO,
@@ -183,7 +217,7 @@ module Api
         idempotency_key: "generation_job:#{job.id}:charge",
         reference: job
       )
-      job.update!(charged_at: Time.current)
+      job.update!(charged_at: Time.current, status: "processing")
 
       payload = {
         prompt: prompt, image: image, aspect_ratio: aspect_ratio,
@@ -192,56 +226,92 @@ module Api
         seed: seed.present? ? seed.to_i : -1,
       }
 
-      body, status = wavespeed_post("#{WAVESPEED_API_BASE}/#{SEEDANCE_MODEL}", payload, api_key)
+      body, status_code = wavespeed_post("#{WAVESPEED_API_BASE}/#{SEEDANCE_MODEL}", payload, api_key)
 
-      if status == 200
-        data = body["data"] || body
-        provider_id = data["id"]
-        job.update!(provider_request_id: provider_id, status: "submitted")
+      if status_code != 200
+        refund_job(job)
+        render json: { error: body["message"] || body["error"] || "WaveSpeed API error", credits: current_user.reload.credits }, status: :bad_gateway
+        return
+      end
+
+      normalized = normalize_wavespeed_payload(body)
+      job.update!(provider_request_id: normalized[:provider_id])
+
+      if normalized[:status] == "completed" && normalized[:outputs].any?
+        result = complete_job!(job, outputs: normalized[:outputs])
         render json: {
           job_id: job.id,
-          prediction_id: provider_id,
+          prediction_id: normalized[:provider_id],
+          status: result[:status],
+          outputs: result[:outputs],
+          credits: result[:credits]
+        }
+      else
+        job.update!(status: "submitted")
+        render json: {
+          job_id: job.id,
+          prediction_id: normalized[:provider_id],
           status: job.status,
           credits: current_user.reload.credits
         }
-      else
-        refund_job(job)
-        render json: { error: body["message"] || body["error"] || "WaveSpeed API error", credits: current_user.reload.credits }, status: :bad_gateway
       end
     rescue CreditLedger::InsufficientCredits
-      render_error("Créditos insuficientes", :payment_required)
+      render_error("Creditos insuficientes", :payment_required)
     rescue ActiveRecord::RecordInvalid => e
       render_error(e.message)
     end
 
     def video_status
       job = find_job(params[:id])
-      return render_error("Job não encontrado", :not_found) unless job
-      return status_response(job) if terminal_status_response(job)
+      return render_error("Job nao encontrado", :not_found) unless job
+      if terminal_status_response(job)
+        ensure_generation_history!(job) if job.status == "completed"
+        return render json: status_payload(job)
+      end
 
       api_key = ENV["WAVESPEED_API_KEY"]
-      return render_error("Serviço de geração não configurado", :service_unavailable) unless api_key.present?
-      return status_response(job) if job.provider_request_id.blank?
+      return render_error("Servico de geracao nao configurado", :service_unavailable) unless api_key.present?
+      return render json: status_payload(job) if job.provider_request_id.blank?
+
+      Rails.logger.info("[GenerateStatus] job=#{job.id} provider=#{job.provider} request=#{job.provider_request_id} status=#{job.status}")
 
       body, status_code = wavespeed_get("#{WAVESPEED_API_BASE}/predictions/#{job.provider_request_id}/result", api_key)
+      normalized = normalize_wavespeed_payload(body)
 
       case status_code
       when 200
-        data = body["data"] || body
-        process_completed(job, data)
+        if normalized[:status] == "completed" && normalized[:outputs].any?
+          Rails.logger.info("[GenerateStatus] provider completed job=#{job.id} outputs=#{normalized[:outputs].size}")
+          result = complete_job!(job, outputs: normalized[:outputs])
+          render json: {
+            status: result[:status],
+            outputs: result[:outputs],
+            credits: result[:credits]
+          }
+        elsif normalized[:status] == "failed"
+          render json: fail_job!(job, normalized[:error] || "Provider returned failed status")
+        else
+          mark_processing!(job)
+          render json: processing_payload(job)
+        end
       when 404, 429, 502, 503
         Rails.logger.warn("[WaveSpeed] Status #{status_code} transitorio para job #{job.id}")
-        processing_response(job, status_code)
+        mark_processing!(job)
+        render json: processing_payload(job)
       else
-        if body["status"].to_s == "failed" || body["error"].to_s.present?
-          process_failed(job, body["error"] || body["message"] || "Provider returned error")
+        if normalized[:status] == "failed" || normalized[:error].present?
+          render json: fail_job!(job, normalized[:error] || "Provider returned error")
         else
-          processing_response(job, status_code)
+          mark_processing!(job)
+          render json: processing_payload(job)
         end
       end
+    rescue Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET, JSON::ParserError => e
+      Rails.logger.warn("[WaveSpeed] Transient error para job #{job&.id}: #{e.class} — #{e.message[0..200]}")
+      mark_processing!(job) if job
+      render json: processing_payload(job)
     rescue => e
-      Rails.logger.error("[WaveSpeed] Erro inesperado video_status: #{e.class} — #{e.message[0..200]}")
-      processing_response(job, nil)
+      internal_error_response(job, e)
     end
 
     # ─────────────────────────── Higgsfield Soul Character ──────────────────
@@ -257,16 +327,15 @@ module Api
       result_images     = params[:result_images] || 1
       enhance_prompt    = params.key?(:enhance_prompt) ? params[:enhance_prompt] : true
 
-      return render_error("Modelo é obrigatório") if model_id.blank?
+      return render_error("Modelo e obrigatorio") if model_id.blank?
 
       model = current_user.avatar_models.find_by!(id: model_id)
-      return render_error("Modelo não está pronto — Character ID não encontrado. Conclua o treinamento primeiro.") unless model.soul_id.present? && model.status == "ready"
+      return render_error("Modelo nao esta pronto — Character ID nao encontrado. Conclua o treinamento primeiro.") unless model.soul_id.present? && model.status == "ready"
 
-      return render_error("Prompt é obrigatório") if prompt.blank?
-      return render_error("Máximo de 6 imagens de referência") if images.size > 6
+      return render_error("Prompt e obrigatorio") if prompt.blank?
+      return render_error("Maximo de 6 imagens de referencia") if images.size > 6
       PromptSafetyService.check!(prompt)
 
-      # Upload imagens base64 para R2
       if images.any? { |img| img.start_with?("data:") }
         public_urls = upload_images_to_r2(model, images)
         images = public_urls
@@ -287,7 +356,6 @@ module Api
         idempotency_key: "gen:higgsfield:#{SecureRandom.uuid}"
       )
 
-      # Cobrar
       CreditLedger.spend!(
         user: current_user,
         amount: Pricing::HIGGSFIELD_CHARACTER,
@@ -295,7 +363,7 @@ module Api
         idempotency_key: "generation_job:#{job.id}:charge",
         reference: job
       )
-      job.update!(charged_at: Time.current)
+      job.update!(charged_at: Time.current, status: "processing")
 
       options = {
         aspect_ratio: aspect_ratio,
@@ -324,7 +392,7 @@ module Api
       credits = current_user.reload.credits
       msg = e.message.to_s
       if msg.downcase.include?("not found") || msg.downcase.include?("character nao encontrado")
-        render json: { error: "Character ID não encontrado na Higgsfield. Recrie o modelo.", credits: credits }, status: :bad_gateway
+        render json: { error: "Character ID nao encontrado na Higgsfield. Recrie o modelo.", credits: credits }, status: :bad_gateway
       else
         render json: { error: msg, credits: credits }, status: :bad_gateway
       end
@@ -335,46 +403,96 @@ module Api
       refund_job(job) if job&.persisted?
       render_error(e.message, :service_unavailable)
     rescue ActiveRecord::RecordNotFound
-      render_error("Modelo não encontrado", :not_found)
+      render_error("Modelo nao encontrado", :not_found)
     rescue CreditLedger::InsufficientCredits
-      render_error("Créditos insuficientes", :payment_required)
+      render_error("Creditos insuficientes", :payment_required)
     end
 
     def higgsfield_status
       job = find_job(params[:id])
-      return render_error("Job não encontrado", :not_found) unless job
-      return status_response(job) if terminal_status_response(job)
-      return status_response(job) if job.provider_request_id.blank?
+      return render_error("Job nao encontrado", :not_found) unless job
+      if terminal_status_response(job)
+        ensure_generation_history!(job) if job.status == "completed"
+        return render json: status_payload(job)
+      end
+      return render json: status_payload(job) if job.provider_request_id.blank?
+
+      Rails.logger.info("[GenerateStatus] job=#{job.id} provider=#{job.provider} request=#{job.provider_request_id} status=#{job.status}")
 
       result = HiggsfieldService.new.generation_status(job.provider_request_id)
 
       if result[:status] == "completed" && result[:outputs].any?
-        process_completed(job, { "outputs" => result[:outputs], "status" => "completed" })
+        r = complete_job!(job, outputs: result[:outputs])
+        render json: { status: r[:status], outputs: r[:outputs], credits: r[:credits] }
       elsif result[:status] == "failed"
-        process_failed(job, result[:error])
+        render json: fail_job!(job, result[:error])
       else
-        render json: { status: result[:status], outputs: job.output_urls, credits: current_user.reload.credits }
+        mark_processing!(job)
+        render json: { status: "processing", outputs: job.output_urls, credits: current_user.reload.credits }
       end
     rescue HiggsfieldService::APIError => e
       Rails.logger.warn("[Higgsfield] APIError transitorio: #{e.message[0..200]}")
-      render json: { status: job.status, outputs: job.output_urls, credits: current_user.reload.credits }
+      mark_processing!(job) if job
+      render json: { status: "processing", outputs: job&.output_urls || [], credits: current_user&.reload&.credits }
     rescue HiggsfieldService::TimeoutError => e
       Rails.logger.warn("[Higgsfield] Timeout transitorio: #{e.message[0..200]}")
-      render json: { status: job.status, outputs: job.output_urls, credits: current_user.reload.credits }
+      mark_processing!(job) if job
+      render json: { status: "processing", outputs: job&.output_urls || [], credits: current_user&.reload&.credits }
+    rescue => e
+      internal_error_response(job, e)
     end
 
     private
 
+    # ─────────────────────────── Payload normalization ──────────────────────
+
+    def normalize_wavespeed_payload(body)
+      data = body.is_a?(Hash) ? (body["data"] || body) : body
+      data = {} unless data.is_a?(Hash)
+
+      provider_id = data["id"] || body["id"]
+      raw_status  = (data["status"] || body["status"] || "processing").to_s.downcase
+      raw_error   = data["error"] || body["error"] || data["message"] || body["message"]
+
+      outputs = extract_outputs(data)
+
+      status = if raw_status == "completed" && outputs.any?
+                 "completed"
+               elsif %w[failed error].include?(raw_status) || raw_error.to_s.present?
+                 "failed"
+               elsif %w[queued created processing running submitted].include?(raw_status)
+                 "processing"
+               else
+                 "processing"
+               end
+
+      { provider_id: provider_id, status: status, outputs: outputs, error: raw_error }
+    end
+
+    def extract_outputs(data)
+      outputs = []
+      if data["outputs"].is_a?(Array)
+        outputs = data["outputs"].map { |o| o.is_a?(Hash) ? o["url"] : o }.compact
+      elsif data["images"].is_a?(Array)
+        outputs = data["images"].map { |img| img.is_a?(Hash) ? img["url"] : img }.compact
+      elsif data["result_images"].is_a?(Array)
+        outputs = data["result_images"].map { |img| img.is_a?(Hash) ? img["url"] : img }.compact
+      elsif data.dig("result", "outputs").is_a?(Array)
+        outputs = data["result"]["outputs"].map { |o| o.is_a?(Hash) ? o["url"] : o }.compact
+      end
+      outputs
+    end
+
+    # ─────────────────────────── Job resolution ─────────────────────────────
+
     def find_job(id_or_request_id)
       raw = id_or_request_id.to_s
 
-      # So consultar por bigint id se for numero puro
       if raw.match?(/\A\d+\z/)
         job = current_user.generation_jobs.find_by(id: raw.to_i)
         return job if job
       end
 
-      # Fallback: provider_request_id (UUID string)
       current_user.generation_jobs.find_by(provider_request_id: raw)
     end
 
@@ -382,37 +500,13 @@ module Api
       job.status == "completed" || job.status == "failed"
     end
 
-    def status_response(job)
-      render json: {
-        status: job.status,
-        outputs: job.output_urls,
-        error: job.error_message,
-        credits: current_user.reload.credits
-      }
-    end
+    # ─────────────────────────── Completion & failure ───────────────────────
 
-    def processing_response(job, _status_code = nil)
-      render json: {
-        status: "processing",
-        outputs: job.output_urls,
-        credits: current_user.reload.credits
-      }
-    end
-
-    def process_completed(job, data)
-      outputs = extract_outputs(data)
-
-      if outputs.empty?
-        render json: { status: "processing", outputs: [], credits: current_user.reload.credits }
-        return
-      end
-
-      already_done = false
-
+    def complete_job!(job, outputs:)
+      # Phase 1: mark job completed atomically (always persists even if history fails)
       job.with_lock do
-        if job.status == "completed" && job.output_urls.any?
-          already_done = true
-          next # sai do with_lock sem duplicar
+        if job.status == "completed" && job.output_urls.any? && (job.metadata || {})["generation_created"]
+          return { status: "completed", outputs: job.output_urls, credits: current_user.reload.credits }
         end
 
         job.update!(
@@ -420,15 +514,19 @@ module Api
           output_urls: outputs,
           completed_at: Time.current
         )
+      end
 
-        metadata = job.metadata || {}
+      # Only the first caller reaches past the lock. Others hit the early return.
+      metadata = job.reload.metadata || {}
 
-        unless metadata["generation_created"]
+      # Phase 2: history — never break the UI if this fails
+      unless metadata["generation_created"]
+        begin
           outputs.each do |url|
             current_user.generations.find_or_create_by!(
               generation_job_id: job.id, url: url
             ) do |gen|
-              gen.model_name = job.avatar_model&.name || job.provider_model
+              gen.model_label = job.avatar_model&.name || job.provider_model
               gen.generation_type = job.generation_type
               gen.prompt = job.prompt
               gen.thumbnail_url = job.thumbnail_url
@@ -440,33 +538,45 @@ module Api
             end
           end
           metadata["generation_created"] = true
+        rescue => e
+          Rails.logger.error("[GenerateStatus] generation_history_error job=#{job.id} #{e.class}: #{e.message}")
+          metadata["history_error"] = "#{e.class}: #{e.message[0..200]}"
         end
+      end
 
-        unless metadata["counters_updated"]
+      # Phase 3: user counters — idempotent via metadata flag
+      unless metadata["counters_updated"]
+        begin
           column = job.generation_type == "image" ? :images_generated : :videos_generated
           current_user.increment!(column, outputs.size)
           metadata["counters_updated"] = true
+        rescue => e
+          Rails.logger.error("[GenerateStatus] counters_error job=#{job.id} #{e.class}: #{e.message}")
         end
-
-        if job.avatar_model.present? && job.generation_type == "image" && !metadata["avatar_model_counter_updated"]
-          job.avatar_model.increment!(:images_generated, outputs.size)
-          metadata["avatar_model_counter_updated"] = true
-        end
-
-        job.update!(metadata: metadata)
       end
 
-      render json: {
-        status: "completed",
-        outputs: already_done ? job.output_urls : outputs,
-        credits: current_user.reload.credits
-      }
+      # Phase 4: avatar model counter — only for image generations
+      if job.avatar_model.present? && job.generation_type == "image" && !metadata["avatar_model_counter_updated"]
+        begin
+          job.avatar_model.increment!(:images_generated, outputs.size)
+          metadata["avatar_model_counter_updated"] = true
+        rescue => e
+          Rails.logger.error("[GenerateStatus] avatar_counter_error job=#{job.id} #{e.class}: #{e.message}")
+        end
+      end
+
+      # Phase 5: persist metadata
+      job.update!(metadata: metadata)
+
+      gen_count = metadata["generation_created"] ? outputs.size : 0
+      Rails.logger.info("[GenerateStatus] completed job=#{job.id} generations=#{gen_count}")
+
+      { status: "completed", outputs: job.output_urls, credits: current_user.reload.credits }
     end
 
-    def process_failed(job, error_message)
+    def fail_job!(job, error_message)
       job.update!(status: "failed", error_message: error_message)
 
-      # Reembolso idempotente
       unless job.refunded_at
         CreditLedger.refund!(
           user: current_user,
@@ -479,12 +589,7 @@ module Api
         job.update!(refunded_at: Time.current)
       end
 
-      render json: {
-        status: "failed",
-        error: error_message,
-        outputs: job.output_urls,
-        credits: current_user.reload.credits
-      }
+      { status: "failed", error: error_message, outputs: job.output_urls, credits: current_user.reload.credits }
     end
 
     def refund_job(job)
@@ -504,19 +609,79 @@ module Api
       Rails.logger.error("[Generate] Erro ao reembolsar job #{job.id}: #{e.message}")
     end
 
-    def extract_outputs(data)
-      outputs = []
-      if data["outputs"].is_a?(Array)
-        outputs = data["outputs"].map { |o| o.is_a?(Hash) ? o["url"] : o }.compact
-      elsif data["images"].is_a?(Array)
-        outputs = data["images"].map { |img| img.is_a?(Hash) ? img["url"] : img }.compact
-      elsif data["result_images"].is_a?(Array)
-        outputs = data["result_images"].map { |img| img.is_a?(Hash) ? img["url"] : img }.compact
+    def ensure_generation_history!(job)
+      return unless job.output_urls.present?
+
+      created_count = 0
+      job.output_urls.each do |url|
+        current_user.generations.find_or_create_by!(generation_job_id: job.id, url: url) do |gen|
+          gen.generation_type = job.generation_type
+          gen.model_label = job.avatar_model&.name || job.provider_model.presence || "unknown"
+          gen.prompt = job.prompt.presence || "Generated media"
+          gen.provider = job.provider
+          gen.provider_model = job.provider_model
+          gen.thumbnail_url = job.thumbnail_url
+          gen.aspect_ratio = job.aspect_ratio
+          gen.resolution = job.resolution
+          gen.duration = job.duration
+          gen.seed = job.seed
+        end
+        created_count += 1
       end
-      outputs
+
+      metadata = job.metadata || {}
+      metadata["generation_created"] = true
+      metadata.delete("history_error") if created_count.positive?
+      job.update!(metadata: metadata)
+    rescue => e
+      Rails.logger.error("[GenerateStatus] generation_history_error job=#{job.id} #{e.class}: #{e.message}")
+      m = job.metadata || {}
+      m["history_error"] = "#{e.class}: #{e.message}".truncate(240)
+      job.update!(metadata: m)
     end
 
-    # ─────────────────────────── HTTP / Upload helpers ──────────────────────
+    def mark_processing!(job)
+      return unless job
+      return if terminal_status_response(job)
+
+      metadata = job.metadata || {}
+      metadata["last_provider_status_code"] = nil unless metadata.key?("last_provider_status_code")
+      metadata["last_provider_error_at"] = Time.current.iso8601
+      job.update!(status: "processing", metadata: metadata) unless job.status == "processing"
+    rescue => e
+      Rails.logger.error("[Generate] Erro ao marcar processing job #{job.id}: #{e.message}")
+    end
+
+    # ─────────────────────────── Response payloads ──────────────────────────
+
+    def status_payload(job)
+      {
+        status: job.status,
+        outputs: job.output_urls,
+        error: job.error_message,
+        credits: current_user.reload.credits
+      }
+    end
+
+    def processing_payload(job)
+      {
+        status: "processing",
+        outputs: job&.output_urls || [],
+        credits: current_user&.reload&.credits
+      }
+    end
+
+    def internal_error_response(job, exception)
+      Rails.logger.error("[Generate] Erro interno #{exception.class} job=#{job&.id}: #{exception.message[0..200]}")
+      Rails.logger.error(exception.backtrace&.first(5)&.join("\n"))
+
+      render json: {
+        error: "Erro interno ao processar resultado",
+        debug: exception.class.name
+      }, status: :internal_server_error
+    end
+
+    # ─────────────────────────── HTTP helpers ───────────────────────────────
 
     def build_http(uri, read_timeout: 60)
       http = Net::HTTP.new(uri.host, uri.port)
@@ -555,7 +720,7 @@ module Api
       raw = body["message"].to_s + " " + body["error"].to_s
       raw_down = raw.downcase
       if raw_down.include?("insufficient credits") || raw_down.include?("top up") || raw_down.include?("insufficient balance")
-        "Serviço de imagem temporariamente indisponível: saldo do provedor insuficiente."
+        "Servico de imagem temporariamente indisponivel: saldo do provedor insuficiente."
       else
         body["message"] || body["error"] || "WaveSpeed API error"
       end

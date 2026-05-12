@@ -574,17 +574,22 @@ export default function GenerateHiggsfield() {
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-4 bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-2"
+              className="mb-4 bg-red-50 border border-red-200 px-4 py-3"
             >
-              <span className="text-red-400 text-sm flex-shrink-0 mt-0.5">
-                ⚠
-              </span>
-              <p className="text-[10px] text-red-700 font-medium">{genError}</p>
+              <div className="flex items-start gap-2">
+                <span className="text-red-400 text-sm flex-shrink-0 mt-0.5">⚠</span>
+                <p className="text-[10px] text-red-700 font-medium flex-1">{genError}</p>
+                <button onClick={() => setGenError(null)} className="text-red-300 hover:text-red-500 text-xs font-black flex-shrink-0">✕</button>
+              </div>
               <button
-                onClick={() => setGenError(null)}
-                className="ml-auto text-red-300 hover:text-red-500 text-xs font-black flex-shrink-0"
+                onClick={async () => {
+                  setGenError(null);
+                  try { const r = await api.credits.balance(); updateCredits(r.balance); } catch {}
+                  window.location.reload();
+                }}
+                className="mt-2 ml-5 text-[9px] font-black uppercase tracking-widest text-[#7C3AED] hover:underline"
               >
-                ✕
+                Verificar Histórico
               </button>
             </motion.div>
           )}
