@@ -35,7 +35,7 @@ const MAX_POLL_ATTEMPTS = 60;
 const MAX_CONSECUTIVE_ERRORS = 5;
 
 export default function GenerateImage() {
-  const { state, updateCredits } = useStore();
+  const { state, updateCredits, refreshGenerations } = useStore();
   const { t } = useI18n();
 
   // Qwen/WaveSpeed nao usa Soul ID — sem seletor de modelo treinado
@@ -99,7 +99,7 @@ export default function GenerateImage() {
         setResults(res.outputs);
         setGenerating(false);
         setGenError(null);
-        // Backend cria Generation no process_completed — nao criar fake local
+        refreshGenerations().catch(() => {});
       } else if (res.status === "failed") {
         stopPolling();
         setGenerating(false);
@@ -167,6 +167,7 @@ export default function GenerateImage() {
       if (res.status === "completed" && res.outputs?.length) {
         setResults(res.outputs);
         setGenerating(false);
+        refreshGenerations().catch(() => {});
         return;
       }
 
@@ -203,33 +204,33 @@ export default function GenerateImage() {
         <div className="w-full xl:w-96 flex-shrink-0 flex flex-col gap-4">
 
           {/* Model badge */}
-          <div className="bg-[#C0001A]/6 border border-[#C0001A]/20 px-4 py-2.5 flex items-center gap-2">
-            <span className="text-[#C0001A] text-sm">✦</span>
+          <div className="bg-[#C0001A]/6 border border-[#C0001A]/20 px-4 py-3 flex items-center gap-3">
+            <span className="text-[#C0001A] text-lg">✦</span>
             <div>
-              <p className="text-[9px] font-black uppercase tracking-widest text-[#C0001A] leading-none">Qwen Image 2.0 Pro</p>
-              <p className="text-[8px] text-black/40 font-medium mt-0.5">WaveSpeed AI · image-to-image</p>
+              <p className="text-xs font-black uppercase tracking-widest text-[#C0001A] leading-none">Qwen Image 2.0 Pro</p>
+              <p className="text-[11px] text-black/40 font-medium mt-0.5">WaveSpeed AI · image-to-image</p>
             </div>
           </div>
 
 
           <div className="bg-white border border-black/8 p-4">
-            <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-1">
+            <p className="text-[11px] font-black uppercase tracking-widest text-black/40 mb-1">
               Qwen Image 2.0 Pro não usa Soul ID
             </p>
-            <p className="text-[9px] text-black/25 font-medium">
+            <p className="text-[11px] text-black/25 font-medium">
               Para usar seu modelo treinado (Natty), vá em <a href="/dashboard/higgsfield" className="text-[#C0001A] font-black hover:underline">Soul 2.0</a>
             </p>
           </div>
 
           {/* Reference image — REQUIRED for Qwen */}
-          <div className="bg-white border border-black/8 p-4">
+          <div className="bg-white border border-black/8 p-5">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-black/40">{t("generateImage.referenceImage")}</p>
-                <p className="text-[8px] text-[#C0001A] font-bold mt-0.5 uppercase tracking-wide">Obrigatória para Qwen</p>
+                <p className="text-xs font-black uppercase tracking-widest text-black/40">{t("generateImage.referenceImage")}</p>
+                <p className="text-[11px] text-[#C0001A] font-bold mt-0.5 uppercase tracking-wide">Obrigatória para Qwen</p>
               </div>
               {referenceImage && (
-                <button onClick={() => setReferenceImage(null)} className="text-[9px] font-black uppercase tracking-widest text-black/30 hover:text-[#C0001A] transition-colors">
+                <button onClick={() => setReferenceImage(null)} className="text-[11px] font-black uppercase tracking-widest text-black/30 hover:text-[#C0001A] transition-colors">
                   {t("generateImage.remove")}
                 </button>
               )}
@@ -237,9 +238,9 @@ export default function GenerateImage() {
 
             {referenceImage ? (
               <div className="relative group">
-                <img src={referenceImage} alt="Ref" className="w-full object-contain bg-black/3 max-h-48" />
+                <img src={referenceImage} alt="Ref" className="w-full object-contain bg-black/3 max-h-56" />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                  <button onClick={() => setReferenceImage(null)} className="bg-white text-black px-3 py-1.5 text-[9px] font-black uppercase tracking-widest hover:bg-[#C0001A] hover:text-white transition-colors">
+                  <button onClick={() => setReferenceImage(null)} className="bg-white text-black px-4 py-2 text-xs font-black uppercase tracking-widest hover:bg-[#C0001A] hover:text-white transition-colors">
                     {t("generateImage.removeBtn")}
                   </button>
                 </div>
@@ -249,43 +250,43 @@ export default function GenerateImage() {
                 onClick={() => refInputRef.current?.click()}
                 onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) loadFile(file); }}
                 onDragOver={(e) => e.preventDefault()}
-                className="border-2 border-dashed border-[#C0001A]/30 hover:border-[#C0001A] transition-colors p-6 text-center cursor-pointer group"
+                className="border-2 border-dashed border-[#C0001A]/30 hover:border-[#C0001A] transition-colors p-8 text-center cursor-pointer group"
               >
-                <p className="text-xl mb-2 opacity-40 group-hover:opacity-70 transition-opacity">🖼</p>
-                <p className="text-[10px] font-black uppercase tracking-widest text-black/40 group-hover:text-black/60 transition-colors">{t("generateImage.dragOrClick")}</p>
-                <p className="text-[9px] text-black/20 font-medium mt-1">{t("generateImage.imageTypes")}</p>
+                <p className="text-2xl mb-2 opacity-40 group-hover:opacity-70 transition-opacity">🖼</p>
+                <p className="text-xs font-black uppercase tracking-widest text-black/40 group-hover:text-black/60 transition-colors">{t("generateImage.dragOrClick")}</p>
+                <p className="text-[11px] text-black/20 font-medium mt-1">{t("generateImage.imageTypes")}</p>
                 <input ref={refInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) loadFile(file); }} />
               </div>
             )}
-            <p className="text-[9px] text-black/25 font-medium mt-2">A IA edita sua imagem de referência com base no prompt</p>
+            <p className="text-[11px] text-black/25 font-medium mt-2">A IA edita sua imagem de referência com base no prompt</p>
           </div>
 
           {/* Prompt */}
-          <div className="bg-white border border-black/8 p-4">
-            <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-3">{t("generateImage.prompt")}</p>
+          <div className="bg-white border border-black/8 p-5">
+            <p className="text-xs font-black uppercase tracking-widest text-black/40 mb-3">{t("generateImage.prompt")}</p>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder={t("generateImage.promptPlaceholder")}
               rows={4}
               maxLength={800}
-              className="w-full border-2 border-black/10 focus:border-[#C0001A] outline-none px-3 py-2.5 text-xs font-medium text-black placeholder:text-black/25 resize-none transition-colors leading-relaxed"
+              className="w-full border-2 border-black/10 focus:border-[#C0001A] outline-none px-4 py-3 text-sm font-medium text-black placeholder:text-black/25 resize-none transition-colors leading-relaxed"
             />
-            <div className="flex justify-between mt-1">
-              <span className="text-[9px] text-black/30 font-medium">{prompt.length}/800</span>
+            <div className="flex justify-between mt-1.5">
+              <span className="text-[11px] text-black/30 font-medium">{prompt.length}/800</span>
               {prompt.length < 3 && prompt.length > 0 && (
-                <span className="text-[9px] text-[#C0001A] font-bold">{t("generateImage.minChars")}</span>
+                <span className="text-[11px] text-[#C0001A] font-bold">{t("generateImage.minChars")}</span>
               )}
             </div>
           </div>
 
           {/* Aspect ratio */}
-          <div className="bg-white border border-black/8 p-4">
-            <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-3">{t("generateImage.proportion")}</p>
-            <div className="grid grid-cols-3 gap-1.5">
+          <div className="bg-white border border-black/8 p-5">
+            <p className="text-xs font-black uppercase tracking-widest text-black/40 mb-3">{t("generateImage.proportion")}</p>
+            <div className="grid grid-cols-3 gap-2">
               {ASPECT_RATIOS.map((r) => (
                 <button key={r.value} onClick={() => setAspectRatio(r.value)}
-                  className={`py-2 text-[10px] font-black border-2 transition-colors ${aspectRatio === r.value ? "border-[#C0001A] bg-[#C0001A] text-white" : "border-black/8 text-black/40 hover:border-black/20 hover:text-black"}`}>
+                  className={`min-h-[44px] text-xs font-black border-2 transition-colors ${aspectRatio === r.value ? "border-[#C0001A] bg-[#C0001A] text-white" : "border-black/8 text-black/40 hover:border-black/20 hover:text-black"}`}>
                   {r.label}
                 </button>
               ))}
@@ -293,24 +294,24 @@ export default function GenerateImage() {
           </div>
 
           {/* Resolution */}
-          <div className="bg-white border border-black/8 p-4">
-            <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-3">{t("generateImage.resolution")}</p>
-            <div className="flex gap-1.5">
+          <div className="bg-white border border-black/8 p-5">
+            <p className="text-xs font-black uppercase tracking-widest text-black/40 mb-3">{t("generateImage.resolution")}</p>
+            <div className="flex gap-2">
               {RESOLUTIONS.map((r) => (
                 <button key={r.value} onClick={() => setResolution(r.value)}
-                  className={`flex-1 py-2.5 flex flex-col items-center border-2 transition-colors ${resolution === r.value ? "border-[#C0001A] bg-[#C0001A] text-white" : "border-black/8 text-black/40 hover:border-black/20 hover:text-black"}`}>
-                  <span className="text-[11px] font-black leading-none">{r.label}</span>
-                  <span className={`text-[8px] font-medium mt-0.5 ${resolution === r.value ? "text-white/60" : "text-black/25"}`}>{r.sub}</span>
+                  className={`flex-1 min-h-[52px] flex flex-col items-center justify-center border-2 transition-colors ${resolution === r.value ? "border-[#C0001A] bg-[#C0001A] text-white" : "border-black/8 text-black/40 hover:border-black/20 hover:text-black"}`}>
+                  <span className="text-xs font-black leading-none">{r.label}</span>
+                  <span className={`text-[10px] font-medium mt-0.5 ${resolution === r.value ? "text-white/60" : "text-black/25"}`}>{r.sub}</span>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Seed */}
-          <div className="bg-white border border-black/8 p-4">
+          <div className="bg-white border border-black/8 p-5">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[9px] font-black uppercase tracking-widest text-black/40">{t("generateImage.seed")}</p>
-              <button onClick={() => setSeed(String(Math.floor(Math.random() * 2147483647)))} className="text-[9px] font-black uppercase tracking-widest text-black/30 hover:text-[#C0001A] transition-colors">
+              <p className="text-xs font-black uppercase tracking-widest text-black/40">{t("generateImage.seed")}</p>
+              <button onClick={() => setSeed(String(Math.floor(Math.random() * 2147483647)))} className="text-[11px] font-black uppercase tracking-widest text-black/30 hover:text-[#C0001A] transition-colors">
                 {t("generateImage.randomSeed")}
               </button>
             </div>
@@ -322,24 +323,24 @@ export default function GenerateImage() {
                 value={seed}
                 onChange={(e) => setSeed(e.target.value.replace(/[^0-9]/g, ""))}
                 placeholder="Aleatório"
-                className="flex-1 border-2 border-black/10 focus:border-[#C0001A] outline-none px-3 py-2.5 text-xs font-medium text-black placeholder:text-black/20 transition-colors"
+                className="flex-1 border-2 border-black/10 focus:border-[#C0001A] outline-none px-4 py-3 text-sm font-medium text-black placeholder:text-black/20 transition-colors"
               />
               {seed && (
-                <button onClick={() => setSeed("")} className="px-3 border-2 border-black/10 text-black/30 hover:border-red-400 hover:text-red-400 transition-colors text-sm font-black">✕</button>
+                <button onClick={() => setSeed("")} className="px-4 border-2 border-black/10 text-black/30 hover:border-red-400 hover:text-red-400 transition-colors text-sm font-black">✕</button>
               )}
             </div>
-            <p className="text-[9px] text-black/25 font-medium mt-2">{t("generateImage.seedHint")}</p>
+            <p className="text-[11px] text-black/25 font-medium mt-2">{t("generateImage.seedHint")}</p>
           </div>
 
           {/* Generate button */}
           <button
             onClick={handleGenerate}
             disabled={!canGenerate || totalCost > state.credits}
-            className="w-full bg-[#C0001A] text-white py-4 text-[11px] font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="w-full bg-[#C0001A] text-white py-4 min-h-[52px] text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             {generating ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 {generatingStatus || "Gerando..."}
               </span>
             ) : (
@@ -348,12 +349,12 @@ export default function GenerateImage() {
           </button>
 
           {!referenceImage && !generating && (
-            <p className="text-[9px] text-[#C0001A] font-bold text-center -mt-2 uppercase tracking-wide">
+            <p className="text-[11px] text-[#C0001A] font-bold text-center -mt-2 uppercase tracking-wide">
               Adicione uma imagem de referência para continuar
             </p>
           )}
 
-          <p className="text-[9px] text-black/25 font-medium text-center -mt-2">
+          <p className="text-[11px] text-black/25 font-medium text-center -mt-2">
             {t("generateImage.availableCredits")} <span className="font-black text-black/40">{state.credits}</span>
           </p>
         </div>
@@ -363,11 +364,11 @@ export default function GenerateImage() {
 
           {genError && (
             <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-              className="mb-4 bg-red-50 border border-red-200 px-4 py-3">
+              className="mb-4 bg-red-50 border border-red-200 px-5 py-4">
               <div className="flex items-start gap-2">
                 <span className="text-red-400 text-sm flex-shrink-0 mt-0.5">⚠</span>
-                <p className="text-[10px] text-red-700 font-medium flex-1">{genError}</p>
-                <button onClick={() => setGenError(null)} className="text-red-300 hover:text-red-500 text-xs font-black flex-shrink-0">✕</button>
+                <p className="text-xs text-red-700 font-medium flex-1">{genError}</p>
+                <button onClick={() => setGenError(null)} className="text-red-300 hover:text-red-500 text-sm font-black flex-shrink-0">✕</button>
               </div>
               <button
                 onClick={async () => {
@@ -375,7 +376,7 @@ export default function GenerateImage() {
                   try { const r = await api.credits.balance(); updateCredits(r.balance); } catch {}
                   window.location.reload();
                 }}
-                className="mt-2 ml-5 text-[9px] font-black uppercase tracking-widest text-[#C0001A] hover:underline"
+                className="mt-2 ml-6 text-[11px] font-black uppercase tracking-widest text-[#C0001A] hover:underline"
               >
                 Verificar Histórico
               </button>
@@ -384,13 +385,13 @@ export default function GenerateImage() {
 
           {!generating && results.length === 0 && !genError && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="h-full min-h-[400px] border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-4 p-8 text-center">
-              <span className="text-5xl opacity-10">✦</span>
+              className="h-full min-h-[400px] border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-5 p-8 text-center">
+              <span className="text-6xl opacity-10">✦</span>
               <div>
-                <p className="text-sm font-black uppercase tracking-tight text-black/25">{t("generateImage.idle")}</p>
-                <p className="text-xs text-black/20 font-medium mt-1 max-w-xs">{t("generateImage.idleDesc")}</p>
+                <p className="text-lg font-black uppercase tracking-tight text-black/25">{t("generateImage.idle")}</p>
+                <p className="text-sm text-black/20 font-medium mt-1 max-w-sm">{t("generateImage.idleDesc")}</p>
               </div>
-              <div className="text-[9px] text-black/20 font-medium border border-black/8 px-3 py-1.5">
+              <div className="text-[11px] text-black/20 font-medium border border-black/8 px-4 py-2">
                 Qwen Image 2.0 Pro · Até 2K
               </div>
             </motion.div>
@@ -398,15 +399,15 @@ export default function GenerateImage() {
 
           {generating && (
             <div>
-              <div className="flex items-center gap-3 mb-4 p-4 bg-white border border-black/8">
-                <div className="w-4 h-4 border-2 border-[#C0001A]/30 border-t-[#C0001A] rounded-full animate-spin flex-shrink-0" />
+              <div className="flex items-center gap-3 mb-4 p-5 bg-white border border-black/8">
+                <div className="w-5 h-5 border-2 border-[#C0001A]/30 border-t-[#C0001A] rounded-full animate-spin flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-widest text-black">{generatingStatus || "Gerando..."}</p>
-                  <p className="text-[9px] text-black/40 font-medium mt-0.5 italic truncate">"{lastPrompt}"</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-black">{generatingStatus || "Gerando..."}</p>
+                  <p className="text-[11px] text-black/40 font-medium mt-0.5 italic truncate">"{lastPrompt}"</p>
                 </div>
-                <span className="text-[8px] font-black text-black/20 uppercase tracking-widest flex-shrink-0">Qwen 2.0 Pro</span>
+                <span className="text-[10px] font-black text-black/20 uppercase tracking-widest flex-shrink-0">Qwen 2.0 Pro</span>
               </div>
-              <div className={`${aspectStyle(aspectRatio)} bg-black/5 animate-pulse w-full max-w-sm`} />
+              <div className={`${aspectStyle(aspectRatio)} bg-black/5 animate-pulse w-full max-w-md rounded-sm`} />
             </div>
           )}
 
@@ -414,30 +415,30 @@ export default function GenerateImage() {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-[11px] font-black uppercase tracking-widest text-black">
+                  <p className="text-xs font-black uppercase tracking-widest text-black">
                     {results.length} {results.length === 1 ? "imagem gerada" : "imagens geradas"}
                   </p>
-                  <p className="text-[9px] text-black/40 font-medium mt-0.5 italic truncate max-w-xs">"{lastPrompt}"</p>
+                  <p className="text-[11px] text-black/40 font-medium mt-0.5 italic truncate max-w-xs">"{lastPrompt}"</p>
                 </div>
                 <button onClick={handleGenerate} disabled={!canGenerate || totalCost > state.credits}
-                  className="bg-black text-white px-4 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-[#C0001A] transition-colors disabled:opacity-30">
+                  className="bg-black text-white px-5 py-3 text-xs font-black uppercase tracking-widest hover:bg-[#C0001A] transition-colors disabled:opacity-30 min-h-[44px]">
                   {t("generateImage.generateAgain")}
                 </button>
               </div>
 
-              <div className={`grid gap-3 ${results.length === 1 ? "grid-cols-1 max-w-sm" : "grid-cols-2"}`}>
+              <div className={`grid gap-4 ${results.length === 1 ? "grid-cols-1 max-w-md" : "grid-cols-2"}`}>
                 <AnimatePresence>
                   {results.map((url, i) => (
                     <motion.div key={url + i} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.1 }}
-                      className={`${aspectStyle(aspectRatio)} relative group overflow-hidden bg-black/5`}>
+                      className={`${aspectStyle(aspectRatio)} relative group overflow-hidden bg-black/5 rounded-sm`}>
                       <img src={url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-end justify-center pb-4 opacity-0 group-hover:opacity-100">
                         <div className="flex gap-2">
-                          <a href={url} target="_blank" rel="noreferrer" download className="bg-white text-black px-4 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-[#C0001A] hover:text-white transition-colors">
+                          <a href={url} target="_blank" rel="noreferrer" download className="bg-white text-black px-5 py-3 text-xs font-black uppercase tracking-widest hover:bg-[#C0001A] hover:text-white transition-colors min-h-[44px] flex items-center">
                             {t("generateImage.download")}
                           </a>
                           <button onClick={() => setResults(results.filter((_, idx) => idx !== i))}
-                            className="bg-black/70 text-white px-3 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors">
+                            className="bg-black/70 text-white px-4 py-3 text-xs font-black uppercase tracking-widest hover:bg-red-600 transition-colors min-h-[44px]">
                             ✕
                           </button>
                         </div>
@@ -451,13 +452,13 @@ export default function GenerateImage() {
 
           {state.generations.filter(g => g.type === "image").length > 0 && (
             <div className="mt-8">
-              <p className="text-[9px] font-black uppercase tracking-widest text-black/30 mb-3">{t("generateImage.recentGenerations")}</p>
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+              <p className="text-[11px] font-black uppercase tracking-widest text-black/30 mb-3">{t("generateImage.recentGenerations")}</p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
                 {state.generations.filter(g => g.type === "image").slice(0, 12).map((gen) => (
-                  <a key={gen.id} href={gen.url} target="_blank" rel="noreferrer" download className="aspect-square bg-black/5 overflow-hidden relative group cursor-pointer block">
+                  <a key={gen.id} href={gen.url} target="_blank" rel="noreferrer" download className="aspect-square bg-black/5 overflow-hidden relative group cursor-pointer block rounded-sm">
                     <img src={gen.url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <span className="text-white text-[10px] font-black">↓</span>
+                      <span className="text-white text-sm font-black">↓</span>
                     </div>
                   </a>
                 ))}

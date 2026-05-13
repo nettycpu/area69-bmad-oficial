@@ -88,7 +88,7 @@ export default function Billing() {
             className="mb-6 bg-red-50 border border-red-200 px-4 py-3 flex items-center gap-2 max-w-lg mx-auto"
           >
             <span className="text-red-400 text-sm">⚠</span>
-            <p className="text-[10px] text-red-700 font-medium flex-1">{error}</p>
+            <p className="text-xs text-red-700 font-medium flex-1">{error}</p>
             <button
               onClick={() => setError(null)}
               className="text-red-300 hover:text-red-500 text-xs font-black"
@@ -112,7 +112,7 @@ export default function Billing() {
             >
               {/* Popular badge */}
               {pack.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#C0001A] text-white text-[8px] font-black uppercase tracking-widest px-3 py-1 whitespace-nowrap">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#C0001A] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 whitespace-nowrap">
                   {t("billing.popular")}
                 </div>
               )}
@@ -122,7 +122,7 @@ export default function Billing() {
                 <p className="text-3xl font-black text-black leading-none">
                   {pack.credits}
                 </p>
-                <p className="text-[9px] font-bold text-black/40 uppercase tracking-wide mt-0.5">
+                <p className="text-xs font-bold text-black/40 uppercase tracking-wide mt-0.5">
                   créditos
                 </p>
               </div>
@@ -132,28 +132,28 @@ export default function Billing() {
                 <p className="text-xl font-black text-black">
                   {pack.priceLabel}
                 </p>
-                <p className="text-[9px] text-black/30 font-medium">
+                <p className="text-[11px] text-black/30 font-medium">
                   {pack.perCredit}
                   {t("billing.perCredit")}
                 </p>
               </div>
 
               {/* Features (compact) */}
-              <ul className="flex-1 space-y-1.5 mb-5 text-[9px] text-black/50 font-medium">
+              <ul className="flex-1 space-y-1.5 mb-5 text-[11px] text-black/50 font-medium">
                 <li className="flex items-start gap-1.5">
-                  <span className="text-[#C0001A] text-[8px] mt-0.5 flex-shrink-0">✓</span>
+                  <span className="text-[#C0001A] text-[10px] mt-0.5 flex-shrink-0">✓</span>
                   Geração de imagens
                 </li>
                 <li className="flex items-start gap-1.5">
-                  <span className="text-[#C0001A] text-[8px] mt-0.5 flex-shrink-0">✓</span>
+                  <span className="text-[#C0001A] text-[10px] mt-0.5 flex-shrink-0">✓</span>
                   Geração de vídeos
                 </li>
                 <li className="flex items-start gap-1.5">
-                  <span className="text-[#C0001A] text-[8px] mt-0.5 flex-shrink-0">✓</span>
+                  <span className="text-[#C0001A] text-[10px] mt-0.5 flex-shrink-0">✓</span>
                   Soul ID training
                 </li>
                 <li className="flex items-start gap-1.5">
-                  <span className="text-[#C0001A] text-[8px] mt-0.5 flex-shrink-0">✓</span>
+                  <span className="text-[#C0001A] text-[10px] mt-0.5 flex-shrink-0">✓</span>
                   Não expiram
                 </li>
               </ul>
@@ -162,7 +162,7 @@ export default function Billing() {
               <button
                 onClick={() => handleBuy(pack.credits, pack.id)}
                 disabled={loading !== null}
-                className={`w-full py-3 text-[11px] font-black uppercase tracking-widest transition-all ${
+                className={`w-full min-h-[48px] text-xs font-black uppercase tracking-widest transition-all ${
                   pack.popular
                     ? "bg-[#C0001A] text-white hover:bg-[#a00015]"
                     : "bg-black text-white hover:bg-[#C0001A]"
@@ -189,12 +189,12 @@ export default function Billing() {
           className="max-w-lg mx-auto text-center"
         >
           <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="text-xs">🔒</span>
-            <p className="text-[9px] font-black uppercase tracking-widest text-black/30">
+            <span className="text-sm">🔒</span>
+            <p className="text-xs font-black uppercase tracking-widest text-black/30">
               {t("billing.secure")}
             </p>
           </div>
-          <p className="text-[9px] text-black/25 font-medium leading-relaxed">
+          <p className="text-xs text-black/25 font-medium leading-relaxed">
             {t("billing.secureDesc")}
           </p>
         </motion.div>

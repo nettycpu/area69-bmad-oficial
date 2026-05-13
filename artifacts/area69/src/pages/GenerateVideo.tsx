@@ -34,7 +34,7 @@ const MAX_POLL_ATTEMPTS = 120;
 const MAX_CONSECUTIVE_ERRORS = 5;
 
 export default function GenerateVideo() {
-  const { state, updateCredits } = useStore();
+  const { state, updateCredits, refreshGenerations } = useStore();
   const { t } = useI18n();
 
   const [prompt, setPrompt] = useState("");
@@ -101,7 +101,7 @@ export default function GenerateVideo() {
         setGenerating(false);
         setGenError(null);
         if (res.credits !== undefined) updateCredits(res.credits);
-        // Backend cria Generation no process_completed
+        refreshGenerations().catch(() => {});
       } else if (res.status === "failed") {
         stopPolling();
         setGenerating(false);
@@ -170,6 +170,7 @@ export default function GenerateVideo() {
         setResultVideo(res.outputs[0]);
         setResultPoster(referenceImage);
         setGenerating(false);
+        refreshGenerations().catch(() => {});
         return;
       }
 
@@ -198,32 +199,32 @@ export default function GenerateVideo() {
         <div className="w-full xl:w-96 flex-shrink-0 flex flex-col gap-4">
 
           {/* Model badge */}
-          <div className="bg-[#C0001A]/6 border border-[#C0001A]/20 px-4 py-2.5 flex items-center gap-2">
-            <span className="text-[#C0001A] text-sm">▷</span>
+          <div className="bg-[#C0001A]/6 border border-[#C0001A]/20 px-4 py-3 flex items-center gap-3">
+            <span className="text-[#C0001A] text-lg">▷</span>
             <div>
-              <p className="text-[9px] font-black uppercase tracking-widest text-[#C0001A] leading-none">Seedance 1.5 Pro</p>
-              <p className="text-[8px] text-black/40 font-medium mt-0.5">WaveSpeed AI · image-to-video · ByteDance</p>
+              <p className="text-xs font-black uppercase tracking-widest text-[#C0001A] leading-none">Seedance 1.5 Pro</p>
+              <p className="text-[11px] text-black/40 font-medium mt-0.5">WaveSpeed AI · image-to-video · ByteDance</p>
             </div>
           </div>
 
           {/* Reference image — REQUIRED */}
-          <div className="bg-white border border-black/8 p-4">
+          <div className="bg-white border border-black/8 p-5">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-black/40">{t("generateVideo.referenceImage")}</p>
-                <p className="text-[8px] text-[#C0001A] font-bold mt-0.5 uppercase tracking-wide">Obrigatória para Seedance</p>
+                <p className="text-xs font-black uppercase tracking-widest text-black/40">{t("generateVideo.referenceImage")}</p>
+                <p className="text-[11px] text-[#C0001A] font-bold mt-0.5 uppercase tracking-wide">Obrigatória para Seedance</p>
               </div>
               {referenceImage && (
-                <button onClick={() => setReferenceImage(null)} className="text-[9px] font-black uppercase tracking-widest text-black/30 hover:text-[#C0001A] transition-colors">
+                <button onClick={() => setReferenceImage(null)} className="text-[11px] font-black uppercase tracking-widest text-black/30 hover:text-[#C0001A] transition-colors">
                   {t("generateVideo.remove")}
                 </button>
               )}
             </div>
             {referenceImage ? (
               <div className="relative group">
-                <img src={referenceImage} alt="Ref" className="w-full object-contain bg-black/3 max-h-48" />
+                <img src={referenceImage} alt="Ref" className="w-full object-contain bg-black/3 max-h-56" />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                  <button onClick={() => setReferenceImage(null)} className="bg-white text-black px-3 py-1.5 text-[9px] font-black uppercase tracking-widest hover:bg-[#C0001A] hover:text-white transition-colors">
+                  <button onClick={() => setReferenceImage(null)} className="bg-white text-black px-4 py-2 text-xs font-black uppercase tracking-widest hover:bg-[#C0001A] hover:text-white transition-colors">
                     {t("generateVideo.removeBtn")}
                   </button>
                 </div>
@@ -232,51 +233,51 @@ export default function GenerateVideo() {
               <div onClick={() => refInputRef.current?.click()}
                 onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) loadFile(f); }}
                 onDragOver={(e) => e.preventDefault()}
-                className="border-2 border-dashed border-[#C0001A]/30 hover:border-[#C0001A] transition-colors p-6 text-center cursor-pointer group">
-                <p className="text-xl mb-2 opacity-40 group-hover:opacity-70 transition-opacity">🖼</p>
-                <p className="text-[10px] font-black uppercase tracking-widest text-black/40 group-hover:text-black/60 transition-colors">{t("generateVideo.dragOrClick")}</p>
-                <p className="text-[9px] text-black/20 font-medium mt-1">JPG, PNG, WEBP</p>
+                className="border-2 border-dashed border-[#C0001A]/30 hover:border-[#C0001A] transition-colors p-8 text-center cursor-pointer group">
+                <p className="text-2xl mb-2 opacity-40 group-hover:opacity-70 transition-opacity">🖼</p>
+                <p className="text-xs font-black uppercase tracking-widest text-black/40 group-hover:text-black/60 transition-colors">{t("generateVideo.dragOrClick")}</p>
+                <p className="text-[11px] text-black/20 font-medium mt-1">JPG, PNG, WEBP</p>
                 <input ref={refInputRef} type="file" accept="image/*" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) loadFile(f); }} />
               </div>
             )}
-            <p className="text-[9px] text-black/25 font-medium mt-2">{t("generateVideo.referenceHint")}</p>
+            <p className="text-[11px] text-black/25 font-medium mt-2">{t("generateVideo.referenceHint")}</p>
           </div>
 
           {/* Prompt */}
-          <div className="bg-white border border-black/8 p-4">
-            <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-3">{t("generateVideo.prompt")}</p>
+          <div className="bg-white border border-black/8 p-5">
+            <p className="text-xs font-black uppercase tracking-widest text-black/40 mb-3">{t("generateVideo.prompt")}</p>
             <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)}
               placeholder={t("generateVideo.promptPlaceholder")} rows={4} maxLength={800}
-              className="w-full border-2 border-black/10 focus:border-[#C0001A] outline-none px-3 py-2.5 text-xs font-medium text-black placeholder:text-black/25 resize-none transition-colors leading-relaxed" />
-            <div className="flex justify-between mt-1">
-              <span className="text-[9px] text-black/30 font-medium">{prompt.length}/800</span>
-              {prompt.length < 3 && prompt.length > 0 && <span className="text-[9px] text-[#C0001A] font-bold">{t("generateVideo.minChars")}</span>}
+              className="w-full border-2 border-black/10 focus:border-[#C0001A] outline-none px-4 py-3 text-sm font-medium text-black placeholder:text-black/25 resize-none transition-colors leading-relaxed" />
+            <div className="flex justify-between mt-1.5">
+              <span className="text-[11px] text-black/30 font-medium">{prompt.length}/800</span>
+              {prompt.length < 3 && prompt.length > 0 && <span className="text-[11px] text-[#C0001A] font-bold">{t("generateVideo.minChars")}</span>}
             </div>
           </div>
 
           {/* Duration */}
-          <div className="bg-white border border-black/8 p-4">
+          <div className="bg-white border border-black/8 p-5">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-[9px] font-black uppercase tracking-widest text-black/40">{t("generateVideo.duration")}</p>
-              <span className="text-[9px] font-black text-white bg-[#C0001A] px-1.5 py-0.5 leading-none">{duration}s</span>
+              <p className="text-xs font-black uppercase tracking-widest text-black/40">{t("generateVideo.duration")}</p>
+              <span className="text-xs font-black text-white bg-[#C0001A] px-2 py-1 leading-none">{duration}s</span>
             </div>
             <input type="range" min={4} max={12} step={1} value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full h-1.5 bg-black/10 appearance-none cursor-pointer accent-[#C0001A] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#C0001A] [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-track]:rounded-full" />
+              className="w-full h-2 bg-black/10 appearance-none cursor-pointer accent-[#C0001A] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#C0001A] [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-track]:rounded-full" />
             <div className="flex justify-between mt-2">
-              <span className="text-[9px] text-black/25 font-bold">4s</span>
-              <span className="text-[9px] text-black/25 font-bold">12s</span>
+              <span className="text-[11px] text-black/25 font-bold">4s</span>
+              <span className="text-[11px] text-black/25 font-bold">12s</span>
             </div>
           </div>
 
           {/* Aspect ratio */}
-          <div className="bg-white border border-black/8 p-4">
-            <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-3">{t("generateVideo.proportion")}</p>
-            <div className="grid grid-cols-3 gap-1.5">
+          <div className="bg-white border border-black/8 p-5">
+            <p className="text-xs font-black uppercase tracking-widest text-black/40 mb-3">{t("generateVideo.proportion")}</p>
+            <div className="grid grid-cols-3 gap-2">
               {ASPECT_RATIOS.map((r) => (
                 <button key={r.value} onClick={() => setAspectRatio(r.value)}
-                  className={`py-2 text-[10px] font-black border-2 transition-colors ${aspectRatio === r.value ? "border-[#C0001A] bg-[#C0001A] text-white" : "border-black/8 text-black/40 hover:border-black/20 hover:text-black"}`}>
+                  className={`min-h-[44px] text-xs font-black border-2 transition-colors ${aspectRatio === r.value ? "border-[#C0001A] bg-[#C0001A] text-white" : "border-black/8 text-black/40 hover:border-black/20 hover:text-black"}`}>
                   {r.label}
                 </button>
               ))}
@@ -284,25 +285,25 @@ export default function GenerateVideo() {
           </div>
 
           {/* Resolution */}
-          <div className="bg-white border border-black/8 p-4">
-            <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-3">{t("generateVideo.resolution")}</p>
-            <div className="flex gap-1.5">
+          <div className="bg-white border border-black/8 p-5">
+            <p className="text-xs font-black uppercase tracking-widest text-black/40 mb-3">{t("generateVideo.resolution")}</p>
+            <div className="flex gap-2">
               {RESOLUTIONS.map((r) => (
                 <button key={r.value} onClick={() => setResolution(r.value)}
-                  className={`flex-1 py-2.5 flex flex-col items-center border-2 transition-colors ${resolution === r.value ? "border-[#C0001A] bg-[#C0001A] text-white" : "border-black/8 text-black/40 hover:border-black/20 hover:text-black"}`}>
-                  <span className="text-[11px] font-black leading-none">{r.label}</span>
-                  <span className={`text-[8px] font-medium mt-0.5 ${resolution === r.value ? "text-white/60" : "text-black/25"}`}>{r.sub}</span>
+                  className={`flex-1 min-h-[52px] flex flex-col items-center justify-center border-2 transition-colors ${resolution === r.value ? "border-[#C0001A] bg-[#C0001A] text-white" : "border-black/8 text-black/40 hover:border-black/20 hover:text-black"}`}>
+                  <span className="text-xs font-black leading-none">{r.label}</span>
+                  <span className={`text-[10px] font-medium mt-0.5 ${resolution === r.value ? "text-white/60" : "text-black/25"}`}>{r.sub}</span>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Seed */}
-          <div className="bg-white border border-black/8 p-4">
+          <div className="bg-white border border-black/8 p-5">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[9px] font-black uppercase tracking-widest text-black/40">{t("generateVideo.seed")}</p>
+              <p className="text-xs font-black uppercase tracking-widest text-black/40">{t("generateVideo.seed")}</p>
               <button onClick={() => setSeed(String(Math.floor(Math.random() * 2147483647)))}
-                className="text-[9px] font-black uppercase tracking-widest text-black/30 hover:text-[#C0001A] transition-colors">
+                className="text-[11px] font-black uppercase tracking-widest text-black/30 hover:text-[#C0001A] transition-colors">
                 {t("generateVideo.randomSeed")}
               </button>
             </div>
@@ -310,48 +311,48 @@ export default function GenerateVideo() {
               <input type="text" inputMode="numeric" pattern="[0-9]*" value={seed}
                 onChange={(e) => setSeed(e.target.value.replace(/[^0-9]/g, ""))}
                 placeholder="Aleatório"
-                className="flex-1 border-2 border-black/10 focus:border-[#C0001A] outline-none px-3 py-2.5 text-xs font-medium text-black placeholder:text-black/20 transition-colors" />
-              {seed && <button onClick={() => setSeed("")} className="px-3 border-2 border-black/10 text-black/30 hover:border-red-400 hover:text-red-400 transition-colors text-sm font-black">✕</button>}
+                className="flex-1 border-2 border-black/10 focus:border-[#C0001A] outline-none px-4 py-3 text-sm font-medium text-black placeholder:text-black/20 transition-colors" />
+              {seed && <button onClick={() => setSeed("")} className="px-4 border-2 border-black/10 text-black/30 hover:border-red-400 hover:text-red-400 transition-colors text-sm font-black">✕</button>}
             </div>
-            <p className="text-[9px] text-black/25 font-medium mt-2">{t("generateVideo.seedHint")}</p>
+            <p className="text-[11px] text-black/25 font-medium mt-2">{t("generateVideo.seedHint")}</p>
           </div>
 
           {/* Generate audio toggle */}
-          <div className="bg-white border border-black/8 p-4">
+          <div className="bg-white border border-black/8 p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-black/40">{t("generateVideo.generateAudio")}</p>
-                <p className="text-[9px] text-black/25 font-medium mt-0.5">
+                <p className="text-xs font-black uppercase tracking-widest text-black/40">{t("generateVideo.generateAudio")}</p>
+                <p className="text-[11px] text-black/25 font-medium mt-0.5">
                   {generateAudio ? t("generateVideo.generateAudioOn") : t("generateVideo.generateAudioOff")}
                 </p>
               </div>
               <button onClick={() => setGenerateAudio((v) => !v)}
-                className={`relative w-11 h-6 rounded-full transition-colors duration-300 flex-shrink-0 ${generateAudio ? "bg-[#C0001A]" : "bg-black/15"}`}>
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-300 ${generateAudio ? "translate-x-5" : "translate-x-0"}`} />
+                className={`relative w-12 h-7 rounded-full transition-colors duration-300 flex-shrink-0 ${generateAudio ? "bg-[#C0001A]" : "bg-black/15"}`}>
+                <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-sm transition-transform duration-300 ${generateAudio ? "translate-x-5" : "translate-x-0"}`} />
               </button>
             </div>
           </div>
 
           {/* Fixed camera toggle */}
-          <div className="bg-white border border-black/8 p-4">
+          <div className="bg-white border border-black/8 p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-black/40">{t("generateVideo.fixedCamera")}</p>
-                <p className="text-[9px] text-black/25 font-medium mt-0.5">{t("generateVideo.fixedCameraDesc")}</p>
+                <p className="text-xs font-black uppercase tracking-widest text-black/40">{t("generateVideo.fixedCamera")}</p>
+                <p className="text-[11px] text-black/25 font-medium mt-0.5">{t("generateVideo.fixedCameraDesc")}</p>
               </div>
               <button onClick={() => setFixedCamera((v) => !v)}
-                className={`relative w-11 h-6 rounded-full transition-colors duration-300 flex-shrink-0 ${fixedCamera ? "bg-[#C0001A]" : "bg-black/15"}`}>
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-300 ${fixedCamera ? "translate-x-5" : "translate-x-0"}`} />
+                className={`relative w-12 h-7 rounded-full transition-colors duration-300 flex-shrink-0 ${fixedCamera ? "bg-[#C0001A]" : "bg-black/15"}`}>
+                <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-sm transition-transform duration-300 ${fixedCamera ? "translate-x-5" : "translate-x-0"}`} />
               </button>
             </div>
           </div>
 
           {/* Generate button */}
           <button onClick={handleGenerate} disabled={!canGenerate || COST > state.credits}
-            className="w-full bg-[#C0001A] text-white py-4 text-[11px] font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+            className="w-full bg-[#C0001A] text-white py-4 min-h-[52px] text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
             {generating ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 {generatingStatus || "Gerando..."}
               </span>
             ) : (
@@ -360,17 +361,17 @@ export default function GenerateVideo() {
           </button>
 
           {!referenceImage && !generating && (
-            <p className="text-[9px] text-[#C0001A] font-bold text-center -mt-2 uppercase tracking-wide">
+            <p className="text-[11px] text-[#C0001A] font-bold text-center -mt-2 uppercase tracking-wide">
               Adicione uma imagem de referência para continuar
             </p>
           )}
 
           {COST > state.credits ? (
-            <p className="text-[9px] text-[#C0001A] font-bold text-center -mt-2 uppercase tracking-wide">
+            <p className="text-[11px] text-[#C0001A] font-bold text-center -mt-2 uppercase tracking-wide">
               {t("generateVideo.insufficientCredits", { n: state.credits })}
             </p>
           ) : (
-            <p className="text-[9px] text-black/25 font-medium text-center -mt-2">
+            <p className="text-[11px] text-black/25 font-medium text-center -mt-2">
               {t("generateVideo.availableCredits")} <span className="font-black text-black/40">{state.credits}</span>
             </p>
           )}
@@ -381,11 +382,11 @@ export default function GenerateVideo() {
 
           {genError && (
             <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-              className="mb-4 bg-red-50 border border-red-200 px-4 py-3">
+              className="mb-4 bg-red-50 border border-red-200 px-5 py-4">
               <div className="flex items-start gap-2">
                 <span className="text-red-400 text-sm flex-shrink-0 mt-0.5">⚠</span>
-                <p className="text-[10px] text-red-700 font-medium flex-1">{genError}</p>
-                <button onClick={() => setGenError(null)} className="text-red-300 hover:text-red-500 text-xs font-black flex-shrink-0">✕</button>
+                <p className="text-xs text-red-700 font-medium flex-1">{genError}</p>
+                <button onClick={() => setGenError(null)} className="text-red-300 hover:text-red-500 text-sm font-black flex-shrink-0">✕</button>
               </div>
               <button
                 onClick={async () => {
@@ -393,7 +394,7 @@ export default function GenerateVideo() {
                   try { const r = await api.credits.balance(); updateCredits(r.balance); } catch {}
                   window.location.reload();
                 }}
-                className="mt-2 ml-5 text-[9px] font-black uppercase tracking-widest text-[#C0001A] hover:underline"
+                className="mt-2 ml-6 text-[11px] font-black uppercase tracking-widest text-[#C0001A] hover:underline"
               >
                 Verificar Histórico
               </button>
@@ -402,13 +403,13 @@ export default function GenerateVideo() {
 
           {!generating && !resultVideo && !genError && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="h-full min-h-[400px] border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-4 p-8 text-center">
-              <span className="text-5xl opacity-10">▷</span>
+              className="h-full min-h-[400px] border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-5 p-8 text-center">
+              <span className="text-6xl opacity-10">▷</span>
               <div>
-                <p className="text-sm font-black uppercase tracking-tight text-black/25">{t("generateVideo.idle")}</p>
-                <p className="text-xs text-black/20 font-medium mt-1 max-w-xs">{t("generateVideo.idleDesc")}</p>
+                <p className="text-lg font-black uppercase tracking-tight text-black/25">{t("generateVideo.idle")}</p>
+                <p className="text-sm text-black/20 font-medium mt-1 max-w-sm">{t("generateVideo.idleDesc")}</p>
               </div>
-              <div className="text-[9px] text-black/20 font-medium border border-black/8 px-3 py-1.5">
+              <div className="text-[11px] text-black/20 font-medium border border-black/8 px-4 py-2">
                 Seedance 1.5 Pro · 4–12s · Até 1080p
               </div>
             </motion.div>
@@ -416,15 +417,15 @@ export default function GenerateVideo() {
 
           {generating && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-4">
-              <div className="flex items-center gap-3 p-4 bg-white border border-black/8">
-                <div className="w-4 h-4 border-2 border-[#C0001A]/30 border-t-[#C0001A] rounded-full animate-spin flex-shrink-0" />
+              <div className="flex items-center gap-3 p-5 bg-white border border-black/8">
+                <div className="w-5 h-5 border-2 border-[#C0001A]/30 border-t-[#C0001A] rounded-full animate-spin flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-widest text-black">{generatingStatus || "Gerando..."}</p>
-                  <p className="text-[9px] text-black/40 font-medium mt-0.5 italic truncate">"{lastPrompt}"</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-black">{generatingStatus || "Gerando..."}</p>
+                  <p className="text-[11px] text-black/40 font-medium mt-0.5 italic truncate">"{lastPrompt}"</p>
                 </div>
-                <span className="text-[8px] font-black text-black/20 uppercase tracking-widest flex-shrink-0">Seedance 1.5 Pro</span>
+                <span className="text-[10px] font-black text-black/20 uppercase tracking-widest flex-shrink-0">Seedance 1.5 Pro</span>
               </div>
-              <div className={`${aspectStyle(aspectRatio)} bg-black/5 animate-pulse w-full`} />
+              <div className={`${aspectStyle(aspectRatio)} bg-black/5 animate-pulse w-full rounded-sm`} />
             </motion.div>
           )}
 
@@ -432,16 +433,16 @@ export default function GenerateVideo() {
             <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[11px] font-black uppercase tracking-widest text-black">{t("generateVideo.videoGenerated")}</p>
-                  <p className="text-[9px] text-black/40 font-medium mt-0.5 italic truncate max-w-xs">"{lastPrompt}"</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-black">{t("generateVideo.videoGenerated")}</p>
+                  <p className="text-[11px] text-black/40 font-medium mt-0.5 italic truncate max-w-xs">"{lastPrompt}"</p>
                 </div>
                 <button onClick={handleGenerate} disabled={!canGenerate || COST > state.credits}
-                  className="bg-black text-white px-4 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-[#C0001A] transition-colors disabled:opacity-30">
+                  className="bg-black text-white px-5 py-3 text-xs font-black uppercase tracking-widest hover:bg-[#C0001A] transition-colors disabled:opacity-30 min-h-[44px]">
                   {t("generateVideo.generateAgain")}
                 </button>
               </div>
 
-              <div className={`${aspectStyle(aspectRatio)} w-full bg-black overflow-hidden relative`}>
+              <div className={`${aspectStyle(aspectRatio)} w-full bg-black overflow-hidden relative rounded-sm`}>
                 <VideoPreview
                   src={resultVideo}
                   poster={resultPoster}
@@ -451,30 +452,30 @@ export default function GenerateVideo() {
                   showDownload
                 />
                 <div className="absolute top-3 left-3 flex gap-2 pointer-events-none">
-                  <span className="bg-black/60 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5">{duration}s</span>
-                  <span className="bg-black/60 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5">{resolution}</span>
-                  <span className="bg-black/60 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5">{aspectRatio}</span>
+                  <span className="bg-black/60 text-white text-[11px] font-black uppercase tracking-widest px-2 py-1">{duration}s</span>
+                  <span className="bg-black/60 text-white text-[11px] font-black uppercase tracking-widest px-2 py-1">{resolution}</span>
+                  <span className="bg-black/60 text-white text-[11px] font-black uppercase tracking-widest px-2 py-1">{aspectRatio}</span>
                 </div>
               </div>
 
               <div className="flex gap-2">
                 <a href={resultVideo} target="_blank" rel="noreferrer" download
-                  className="flex-1 bg-[#C0001A] text-white py-3 text-[10px] font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors text-center">
+                  className="flex-1 bg-[#C0001A] text-white py-3 text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors text-center min-h-[44px] flex items-center justify-center">
                   {t("generateVideo.download")}
                 </a>
                 <button onClick={() => setResultVideo(null)}
-                  className="px-4 border-2 border-black/10 text-[9px] font-black uppercase tracking-widest text-black/40 hover:border-red-400 hover:text-red-400 transition-colors">✕</button>
+                  className="px-5 border-2 border-black/10 text-xs font-black uppercase tracking-widest text-black/40 hover:border-red-400 hover:text-red-400 transition-colors min-h-[44px]">✕</button>
               </div>
             </motion.div>
           )}
 
           {state.generations.filter(g => g.type === "video").length > 0 && (
             <div className="mt-8">
-              <p className="text-[9px] font-black uppercase tracking-widest text-black/30 mb-3">{t("generateVideo.recentVideos")}</p>
+              <p className="text-[11px] font-black uppercase tracking-widest text-black/30 mb-3">{t("generateVideo.recentVideos")}</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {state.generations.filter(g => g.type === "video").slice(0, 6).map((gen) => (
                   <a key={gen.id} href={gen.url} target="_blank" rel="noreferrer"
-                    className="bg-black overflow-hidden relative group cursor-pointer block">
+                    className="bg-black overflow-hidden relative group cursor-pointer block rounded-sm">
                     <VideoPreview
                       src={gen.url}
                       aspectRatio="16:9"

@@ -37,7 +37,7 @@ export default function Dashboard() {
         </motion.div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
         {[
           {
             label: t("dashboard.stats.readyModels"),
@@ -55,18 +55,18 @@ export default function Dashboard() {
             transition={{ delay: i * 0.08 }}
             className="bg-white border border-black/8 p-5"
           >
-            <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-2">{s.label}</p>
+            <p className="text-[11px] font-black uppercase tracking-widest text-black/40 mb-2">{s.label}</p>
             <p className={`text-3xl font-black leading-none ${s.value === 0 ? "text-black/20" : "text-black"}`}>
               {s.value}
             </p>
-            <p className="text-[10px] text-black/40 font-medium mt-1">{s.sub}</p>
+            <p className="text-xs text-black/40 font-medium mt-1">{s.sub}</p>
           </motion.div>
         ))}
       </div>
 
       <div className="mb-8">
-        <p className="text-[10px] font-black uppercase tracking-widest text-black/40 mb-3">{t("dashboard.quickActions.title")}</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <p className="text-[11px] font-black uppercase tracking-widest text-black/40 mb-3">{t("dashboard.quickActions.title")}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
           {[
             {
               icon: "◈",
@@ -98,11 +98,11 @@ export default function Dashboard() {
             >
               <Link
                 href={a.href}
-                className={`${a.color} text-white p-5 text-left hover:opacity-90 transition-opacity group flex flex-col w-full`}
+                className={`${a.color} text-white p-5 md:p-6 text-left hover:opacity-90 transition-opacity group flex flex-col w-full`}
               >
                 <span className="text-2xl leading-none block mb-3 group-hover:scale-110 transition-transform">{a.icon}</span>
                 <p className="text-sm font-black uppercase tracking-tight">{a.label}</p>
-                <p className="text-[10px] text-white/60 font-medium mt-1">{a.desc}</p>
+                <p className="text-xs text-white/60 font-medium mt-1">{a.desc}</p>
               </Link>
             </motion.div>
           ))}
@@ -156,8 +156,8 @@ export default function Dashboard() {
 
       <div className="mb-8">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-black/40">{t("dashboard.myModels.title")}</p>
-          <Link href="/dashboard/models" className="text-[10px] font-black uppercase tracking-widest text-[#C0001A] hover:underline">
+          <p className="text-[11px] font-black uppercase tracking-widest text-black/40">{t("dashboard.myModels.title")}</p>
+          <Link href="/dashboard/models" className="text-xs font-black uppercase tracking-widest text-[#C0001A] hover:underline">
             {t("dashboard.myModels.viewAll")}
           </Link>
         </div>
@@ -165,17 +165,17 @@ export default function Dashboard() {
         {state.models.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 text-center border-2 border-dashed border-black/10">
             <span className="text-4xl mb-3 opacity-10">◈</span>
-            <p className="text-xs font-black uppercase tracking-widest text-black/30">{t("dashboard.myModels.empty")}</p>
-            <p className="text-[11px] text-black/25 font-medium mt-1 max-w-xs">{t("dashboard.myModels.emptyDesc")}</p>
+            <p className="text-sm font-black uppercase tracking-widest text-black/30">{t("dashboard.myModels.empty")}</p>
+            <p className="text-xs text-black/25 font-medium mt-1 max-w-xs">{t("dashboard.myModels.emptyDesc")}</p>
             <Link
               href="/dashboard/models"
-              className="mt-5 bg-[#C0001A] text-white px-6 py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors"
+              className="mt-5 bg-[#C0001A] text-white px-6 py-3 text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors"
             >
               {t("dashboard.myModels.trainFirst")}
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
             {state.models.slice(0, 3).map((model, i) => (
               <motion.div
                 key={model.id}
@@ -213,7 +213,7 @@ export default function Dashboard() {
                   {model.status === "ready" && (
                     <button
                       onClick={() => setLocation("/dashboard/generate")}
-                      className="mt-3 w-full bg-[#C0001A] text-white py-2 text-[9px] font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors">
+                      className="mt-3 w-full bg-[#C0001A] text-white py-3 text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors">
                       {t("dashboard.myModels.useModel")}
                     </button>
                   )}
@@ -226,8 +226,8 @@ export default function Dashboard() {
 
       <div>
         <div className="flex items-center justify-between mb-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-black/40">{t("dashboard.recent.title")}</p>
-          <Link href="/dashboard/history" className="text-[10px] font-black uppercase tracking-widest text-[#C0001A] hover:underline">
+          <p className="text-[11px] font-black uppercase tracking-widest text-black/40">{t("dashboard.recent.title")}</p>
+          <Link href="/dashboard/history" className="text-xs font-black uppercase tracking-widest text-[#C0001A] hover:underline">
             {t("dashboard.recent.viewHistory")}
           </Link>
         </div>
@@ -235,8 +235,8 @@ export default function Dashboard() {
         {state.generations.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 text-center border-2 border-dashed border-black/10">
             <span className="text-4xl mb-3 opacity-10">✦</span>
-            <p className="text-xs font-black uppercase tracking-widest text-black/30">{t("dashboard.recent.empty")}</p>
-            <p className="text-[11px] text-black/25 font-medium mt-1 max-w-xs">{t("dashboard.recent.emptyDesc")}</p>
+            <p className="text-sm font-black uppercase tracking-widest text-black/30">{t("dashboard.recent.empty")}</p>
+            <p className="text-xs text-black/25 font-medium mt-1 max-w-xs">{t("dashboard.recent.emptyDesc")}</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">

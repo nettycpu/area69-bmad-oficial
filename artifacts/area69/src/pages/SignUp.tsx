@@ -66,7 +66,7 @@ export default function SignUp() {
 
         <div className="flex flex-wrap justify-center gap-2 mb-6">
           {tArr("signUp.featurePills").map((p) => (
-            <span key={p} className="text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-white/15 border border-white/30 text-white">
+            <span key={p} className="text-[11px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full bg-white/15 border border-white/30 text-white">
               {p}
             </span>
           ))}
@@ -75,7 +75,7 @@ export default function SignUp() {
         <div className="bg-white p-8 shadow-2xl">
           <form onSubmit={handleSignUp} className="flex flex-col gap-5">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-black/50">{t("signUp.name")}</label>
+              <label className="text-xs font-black uppercase tracking-widest text-black/50">{t("signUp.name")}</label>
               <input
                 type="text"
                 value={name}
@@ -87,7 +87,7 @@ export default function SignUp() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-black/50">{t("signUp.email")}</label>
+              <label className="text-xs font-black uppercase tracking-widest text-black/50">{t("signUp.email")}</label>
               <input
                 type="email"
                 value={email}
@@ -99,7 +99,7 @@ export default function SignUp() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-black/50">{t("signUp.password")}</label>
+              <label className="text-xs font-black uppercase tracking-widest text-black/50">{t("signUp.password")}</label>
               <input
                 type="password"
                 value={password}
@@ -116,7 +116,7 @@ export default function SignUp() {
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
-                  className="text-[11px] font-bold text-[#C0001A] bg-[#C0001A]/8 border border-[#C0001A]/20 px-3 py-2"
+                  className="text-xs font-bold text-[#C0001A] bg-[#C0001A]/8 border border-[#C0001A]/20 px-3 py-2"
                 >
                   {error}
                 </motion.p>
@@ -169,7 +169,7 @@ export default function SignUp() {
           </div>
         </div>
 
-        <p className="text-center text-white/30 text-[10px] font-bold uppercase tracking-widest mt-8">
+        <p className="text-center text-white/30 text-xs font-bold uppercase tracking-widest mt-8">
           © 2025 AREA 69 · AI Models Studio
         </p>
       </motion.div>

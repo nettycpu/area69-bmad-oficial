@@ -2,10 +2,6 @@ require "aws-sdk-s3"
 
 module Api
   class TrainingController < ApplicationController
-    rescue_from PromptSafetyService::SafetyError do |e|
-      render json: { error: e.message }, status: :unprocessable_entity
-    end
-
     rescue_from UploadValidator::ValidationError do |e|
       render json: { error: e.message }, status: :unprocessable_entity
     end
@@ -20,41 +16,44 @@ module Api
       return render_error("Nome é obrigatório") if name.blank?
       return render_error("Envie pelo menos 10 fotos") if images.size < 10
       return render_error("Máximo de 30 fotos") if images.size > 30
-      PromptSafetyService.check!(name)
 
       # Upload imagens para R2 (antes de salvar — não persistir base64 no banco)
       input_urls = upload_images_to_r2(name, images)
 
-      # Build model record (sem training_images base64)
-      model = current_user.avatar_models.create!(
-        name: name,
-        style: "realistic",
-        cover: input_urls.first,
-        status: "training",
-        training_images_count: images.size
-      )
+      model = nil
+      job = nil
+      ActiveRecord::Base.transaction do
+        # Build model record (sem training_images base64)
+        model = current_user.avatar_models.create!(
+          name: name,
+          style: "realistic",
+          cover: input_urls.first,
+          status: "training",
+          training_images_count: images.size
+        )
 
-      job = current_user.generation_jobs.create!(
-        provider: "higgsfield",
-        provider_model: "higgsfield-ai/soul/character",
-        generation_type: "training",
-        status: "queued",
-        cost_credits: TRAINING_COST,
-        prompt: "Training: #{name}",
-        input_urls: input_urls,
-        avatar_model: model,
-        idempotency_key: "training:avatar_model:#{model.id}:#{SecureRandom.uuid}"
-      )
+        job = current_user.generation_jobs.create!(
+          provider: "higgsfield",
+          provider_model: "higgsfield-ai/soul/character",
+          generation_type: "training",
+          status: "queued",
+          cost_credits: TRAINING_COST,
+          prompt: "Training: #{name}",
+          input_urls: input_urls,
+          avatar_model: model,
+          idempotency_key: "training:avatar_model:#{model.id}:#{SecureRandom.uuid}"
+        )
 
-      # Cobrar
-      CreditLedger.spend!(
-        user: current_user,
-        amount: TRAINING_COST,
-        source: "higgsfield_training",
-        idempotency_key: "training:avatar_model:#{model.id}:charge",
-        reference: job
-      )
-      job.update!(charged_at: Time.current, status: "submitted")
+        # Cobrar
+        CreditLedger.spend!(
+          user: current_user,
+          amount: TRAINING_COST,
+          source: "higgsfield_training",
+          idempotency_key: "training:avatar_model:#{model.id}:charge",
+          reference: job
+        )
+        job.update!(charged_at: Time.current, status: "submitted")
+      end
 
       # Enviar para Higgsfield em background
       HiggsfieldTrainingJob.perform_later(model.id, job.id)

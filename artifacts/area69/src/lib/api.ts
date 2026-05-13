@@ -214,7 +214,7 @@ export const api = {
         body: JSON.stringify(data),
       }),
     status: (id: string | number) =>
-      request<{ model: ApiModel }>(`/training/${id}/status`),
+      request<{ model: ApiModel; credits?: number }>(`/training/${id}/status`),
   },
   checkout: {
     stripe: (data: { credits: number }) =>

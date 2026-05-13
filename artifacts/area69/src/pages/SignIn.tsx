@@ -59,7 +59,7 @@ export default function SignIn() {
         <div className="bg-white p-8 shadow-2xl">
           <form onSubmit={handleSignIn} className="flex flex-col gap-5">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-black/50">{t("signIn.email")}</label>
+              <label className="text-xs font-black uppercase tracking-widest text-black/50">{t("signIn.email")}</label>
               <input
                 type="email"
                 value={email}
@@ -71,7 +71,7 @@ export default function SignIn() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-black/50">{t("signIn.password")}</label>
+              <label className="text-xs font-black uppercase tracking-widest text-black/50">{t("signIn.password")}</label>
               <input
                 type="password"
                 value={password}
@@ -88,7 +88,7 @@ export default function SignIn() {
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
-                  className="text-[11px] font-bold text-[#C0001A] bg-[#C0001A]/8 border border-[#C0001A]/20 px-3 py-2"
+                  className="text-xs font-bold text-[#C0001A] bg-[#C0001A]/8 border border-[#C0001A]/20 px-3 py-2"
                 >
                   {error}
                 </motion.p>
@@ -99,7 +99,7 @@ export default function SignIn() {
               <button
                 type="button"
                 onClick={() => setForgotOpen((v) => !v)}
-                className="text-[11px] font-bold text-[#C0001A] uppercase tracking-widest hover:underline"
+                className="text-xs font-bold text-[#C0001A] uppercase tracking-widest hover:underline"
               >
                 {t("signIn.forgotPassword")}
               </button>
@@ -113,7 +113,7 @@ export default function SignIn() {
                   exit={{ opacity: 0, height: 0 }}
                   className="overflow-hidden"
                 >
-                  <p className="text-[11px] text-black/50 font-medium bg-black/4 border border-black/8 px-3 py-2.5 leading-relaxed">
+                  <p className="text-xs text-black/50 font-medium bg-black/4 border border-black/8 px-3 py-2.5 leading-relaxed">
                     {t("signIn.forgotPasswordHint")}
                   </p>
                 </motion.div>
@@ -140,7 +140,7 @@ export default function SignIn() {
           </div>
         </div>
 
-        <p className="text-center text-white/30 text-[10px] font-bold uppercase tracking-widest mt-8">
+        <p className="text-center text-white/30 text-xs font-bold uppercase tracking-widest mt-8">
           © 2025 AREA 69 · AI Models Studio
         </p>
       </motion.div>

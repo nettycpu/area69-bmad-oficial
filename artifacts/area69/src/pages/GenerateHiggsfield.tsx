@@ -13,7 +13,7 @@ const MAX_POLL_ATTEMPTS = 60;
 const MAX_CONSECUTIVE_ERRORS = 5;
 
 export default function GenerateHiggsfield() {
-  const { state, updateCredits } = useStore();
+  const { state, updateCredits, refreshGenerations } = useStore();
   const { t } = useI18n();
   const [location] = useLocation();
 
@@ -111,7 +111,7 @@ export default function GenerateHiggsfield() {
         setResults(res.outputs);
         setGenerating(false);
         setGenError(null);
-        // Backend cria Generation no process_completed
+        refreshGenerations().catch(() => {});
       } else if (res.status === "failed") {
         stopPolling();
         setGenerating(false);
@@ -228,13 +228,13 @@ export default function GenerateHiggsfield() {
         {/* ── LEFT PANEL ─────────────────────────────────────────────────────── */}
         <div className="w-full xl:w-96 flex-shrink-0 flex flex-col gap-4">
           {/* Model badge */}
-          <div className="bg-[#7C3AED]/6 border border-[#7C3AED]/20 px-4 py-2.5 flex items-center gap-2">
-            <span className="text-[#7C3AED] text-sm">⚡</span>
+          <div className="bg-[#7C3AED]/6 border border-[#7C3AED]/20 px-4 py-3 flex items-center gap-3">
+            <span className="text-[#7C3AED] text-lg">⚡</span>
             <div>
-              <p className="text-[9px] font-black uppercase tracking-widest text-[#7C3AED] leading-none">
+              <p className="text-xs font-black uppercase tracking-widest text-[#7C3AED] leading-none">
                 Soul 2.0 Character
               </p>
-              <p className="text-[8px] text-black/40 font-medium mt-0.5">
+              <p className="text-[11px] text-black/40 font-medium mt-0.5">
                 Higgsfield Soul Character · Character ID
                 {selectedSoulId && (
                   <span className="ml-1 text-[#7C3AED]/60">
@@ -246,23 +246,23 @@ export default function GenerateHiggsfield() {
           </div>
 
           {/* Model selector — REQUIRED */}
-          <div className="bg-white border border-black/8 p-4">
+          <div className="bg-white border border-black/8 p-5">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-black/40">
+                <p className="text-xs font-black uppercase tracking-widest text-black/40">
                   Modelo Treinado
                 </p>
-                <p className="text-[8px] text-[#7C3AED] font-bold mt-0.5 uppercase tracking-wide">
+                <p className="text-[11px] text-[#7C3AED] font-bold mt-0.5 uppercase tracking-wide">
                   Obrigatório — usa seu Character ID
                 </p>
               </div>
             </div>
             {trainedModels.length === 0 ? (
-              <div className="border border-dashed border-black/10 p-4 text-center">
-                <p className="text-[9px] font-medium text-black/30 mb-2">
+              <div className="border border-dashed border-black/10 p-5 text-center">
+                <p className="text-[11px] font-medium text-black/30 mb-2">
                   Nenhum modelo com Soul ID encontrado
                 </p>
-                <p className="text-[8px] text-black/20 font-medium">
+                <p className="text-[10px] text-black/20 font-medium">
                   Treine um modelo em Dashboard → Modelos para desbloquear
                 </p>
               </div>
@@ -272,13 +272,13 @@ export default function GenerateHiggsfield() {
                   <button
                     key={m.id}
                     onClick={() => setSelectedModel(m.id)}
-                    className={`flex items-center gap-3 p-2.5 border-2 transition-colors text-left ${
+                    className={`flex items-center gap-3 p-3 border-2 transition-colors text-left ${
                       selectedModel === m.id
                         ? "border-[#7C3AED] bg-[#7C3AED]/5"
                         : "border-black/8 hover:border-black/20"
                     }`}
                   >
-                    <div className="w-9 h-9 bg-black/5 flex-shrink-0 overflow-hidden">
+                    <div className="w-10 h-10 bg-black/5 flex-shrink-0 overflow-hidden rounded-sm">
                       {m.cover ? (
                         <img
                           src={m.cover}
@@ -292,10 +292,10 @@ export default function GenerateHiggsfield() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-black uppercase tracking-tight text-black leading-none truncate">
+                      <p className="text-xs font-black uppercase tracking-tight text-black leading-none truncate">
                         {m.name}
                       </p>
-                      <p className="text-[8px] text-black/40 font-medium mt-0.5 truncate">
+                      <p className="text-[10px] text-black/40 font-medium mt-0.5 truncate">
                         Char ID: {m.soulId?.slice(0, 12)}... · {m.imagesGenerated}{" "}
                         imgs
                       </p>
@@ -312,14 +312,14 @@ export default function GenerateHiggsfield() {
           </div>
 
           {/* Reference images — OPTIONAL */}
-          <div className="bg-white border border-black/8 p-4">
+          <div className="bg-white border border-black/8 p-5">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-black/40">
+                <p className="text-xs font-black uppercase tracking-widest text-black/40">
                   Imagens de Referência
                 </p>
               </div>
-              <span className="text-[8px] font-bold text-black/25 uppercase tracking-widest border border-black/10 px-1.5 py-0.5">
+              <span className="text-[10px] font-bold text-black/25 uppercase tracking-widest border border-black/10 px-2 py-0.5">
                 Opcional
               </span>
             </div>
@@ -327,7 +327,7 @@ export default function GenerateHiggsfield() {
             {referenceImages.length > 0 && (
               <div className="flex gap-2 mb-3 flex-wrap">
                 {referenceImages.map((url, i) => (
-                  <div key={i} className="relative w-16 h-16 group">
+                  <div key={i} className="relative w-20 h-20 group">
                     <img
                       src={url}
                       alt={`Ref ${i + 1}`}
@@ -335,7 +335,7 @@ export default function GenerateHiggsfield() {
                     />
                     <button
                       onClick={() => removeRefImage(i)}
-                      className="absolute -top-1 -right-1 w-4 h-4 bg-black text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-black text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       ✕
                     </button>
@@ -352,15 +352,15 @@ export default function GenerateHiggsfield() {
                 if (file) loadFile(file);
               }}
               onDragOver={(e) => e.preventDefault()}
-              className="border-2 border-dashed border-[#7C3AED]/30 hover:border-[#7C3AED] transition-colors p-4 text-center cursor-pointer group"
+              className="border-2 border-dashed border-[#7C3AED]/30 hover:border-[#7C3AED] transition-colors p-6 text-center cursor-pointer group"
             >
-              <p className="text-lg mb-1 opacity-40 group-hover:opacity-70 transition-opacity">
+              <p className="text-2xl mb-1 opacity-40 group-hover:opacity-70 transition-opacity">
                 🖼
               </p>
-              <p className="text-[9px] font-black uppercase tracking-widest text-black/40 group-hover:text-black/60 transition-colors">
+              <p className="text-[11px] font-black uppercase tracking-widest text-black/40 group-hover:text-black/60 transition-colors">
                 Arraste ou clique
               </p>
-              <p className="text-[8px] text-black/20 font-medium mt-1">
+              <p className="text-[10px] text-black/20 font-medium mt-1">
                 PNG, JPG, WebP · máx 10MB cada · até 6
               </p>
               <input
@@ -374,14 +374,14 @@ export default function GenerateHiggsfield() {
                 }}
               />
             </div>
-            <p className="text-[8px] text-black/25 font-medium mt-2">
+            <p className="text-[10px] text-black/25 font-medium mt-2">
               A IA usa estas imagens como referência visual (opcional)
             </p>
           </div>
 
           {/* Prompt */}
-          <div className="bg-white border border-black/8 p-4">
-            <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-3">
+          <div className="bg-white border border-black/8 p-5">
+            <p className="text-xs font-black uppercase tracking-widest text-black/40 mb-3">
               Prompt
             </p>
             <textarea
@@ -390,14 +390,14 @@ export default function GenerateHiggsfield() {
               placeholder="Descreva a imagem que você quer gerar com seu modelo..."
               rows={4}
               maxLength={800}
-              className="w-full border-2 border-black/10 focus:border-[#7C3AED] outline-none px-3 py-2.5 text-xs font-medium text-black placeholder:text-black/25 resize-none transition-colors leading-relaxed"
+              className="w-full border-2 border-black/10 focus:border-[#7C3AED] outline-none px-4 py-3 text-sm font-medium text-black placeholder:text-black/25 resize-none transition-colors leading-relaxed"
             />
-            <div className="flex justify-between mt-1">
-              <span className="text-[8px] text-black/30 font-medium">
+            <div className="flex justify-between mt-1.5">
+              <span className="text-[10px] text-black/30 font-medium">
                 {prompt.length}/800
               </span>
               {prompt.length < 3 && prompt.length > 0 && (
-                <span className="text-[8px] text-[#7C3AED] font-bold">
+                <span className="text-[10px] text-[#7C3AED] font-bold">
                   Mínimo 3 caracteres
                 </span>
               )}
@@ -405,9 +405,9 @@ export default function GenerateHiggsfield() {
           </div>
 
           {/* Seed */}
-          <div className="bg-white border border-black/8 p-4">
+          <div className="bg-white border border-black/8 p-5">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[9px] font-black uppercase tracking-widest text-black/40">
+              <p className="text-xs font-black uppercase tracking-widest text-black/40">
                 Seed
               </p>
               <button
@@ -416,7 +416,7 @@ export default function GenerateHiggsfield() {
                     String(Math.floor(Math.random() * 2147483647)),
                   )
                 }
-                className="text-[8px] font-black uppercase tracking-widest text-black/30 hover:text-[#7C3AED] transition-colors"
+                className="text-[10px] font-black uppercase tracking-widest text-black/30 hover:text-[#7C3AED] transition-colors"
               >
                 Aleatório
               </button>
@@ -431,25 +431,25 @@ export default function GenerateHiggsfield() {
                   setSeed(e.target.value.replace(/[^0-9]/g, ""))
                 }
                 placeholder="Aleatório"
-                className="flex-1 border-2 border-black/10 focus:border-[#7C3AED] outline-none px-3 py-2.5 text-xs font-medium text-black placeholder:text-black/20 transition-colors"
+                className="flex-1 border-2 border-black/10 focus:border-[#7C3AED] outline-none px-4 py-3 text-sm font-medium text-black placeholder:text-black/20 transition-colors"
               />
               {seed && (
                 <button
                   onClick={() => setSeed("")}
-                  className="px-3 border-2 border-black/10 text-black/30 hover:border-red-400 hover:text-red-400 transition-colors text-sm font-black"
+                  className="px-4 border-2 border-black/10 text-black/30 hover:border-red-400 hover:text-red-400 transition-colors text-sm font-black"
                 >
                   ✕
                 </button>
               )}
             </div>
-            <p className="text-[8px] text-black/25 font-medium mt-2">
+            <p className="text-[10px] text-black/25 font-medium mt-2">
               Mesmo seed + mesmo prompt = resultados consistentes
             </p>
           </div>
 
           {/* Aspect Ratio & Resolution */}
-          <div className="bg-white border border-black/8 p-4">
-            <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-3">
+          <div className="bg-white border border-black/8 p-5">
+            <p className="text-xs font-black uppercase tracking-widest text-black/40 mb-3">
               Proporção & Resolução
             </p>
             <div className="flex gap-3">
@@ -457,7 +457,7 @@ export default function GenerateHiggsfield() {
                 <select
                   value={aspectRatio}
                   onChange={(e) => setAspectRatio(e.target.value)}
-                  className="w-full border-2 border-black/10 focus:border-[#7C3AED] outline-none px-3 py-2.5 text-xs font-medium text-black bg-white transition-colors"
+                  className="w-full border-2 border-black/10 focus:border-[#7C3AED] outline-none px-3 py-3 text-sm font-medium text-black bg-white transition-colors"
                 >
                   <option value="1:1">1:1 (Quadrado)</option>
                   <option value="3:4">3:4 (Retrato)</option>
@@ -470,7 +470,7 @@ export default function GenerateHiggsfield() {
                 <select
                   value={resolution}
                   onChange={(e) => setResolution(e.target.value)}
-                  className="w-full border-2 border-black/10 focus:border-[#7C3AED] outline-none px-3 py-2.5 text-xs font-medium text-black bg-white transition-colors"
+                  className="w-full border-2 border-black/10 focus:border-[#7C3AED] outline-none px-3 py-3 text-sm font-medium text-black bg-white transition-colors"
                 >
                   <option value="720p">720p</option>
                   <option value="1080p">1080p</option>
@@ -480,12 +480,12 @@ export default function GenerateHiggsfield() {
           </div>
 
           {/* Character Strength */}
-          <div className="bg-white border border-black/8 p-4">
+          <div className="bg-white border border-black/8 p-5">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[9px] font-black uppercase tracking-widest text-black/40">
+              <p className="text-xs font-black uppercase tracking-widest text-black/40">
                 Character Strength
               </p>
-              <span className="text-[8px] font-black text-[#7C3AED] tabular-nums">
+              <span className="text-xs font-black text-[#7C3AED] tabular-nums">
                 {characterStrength.toFixed(1)}
               </span>
             </div>
@@ -496,37 +496,37 @@ export default function GenerateHiggsfield() {
               step="0.1"
               value={characterStrength}
               onChange={(e) => setCharacterStrength(parseFloat(e.target.value))}
-              className="w-full accent-[#7C3AED]"
+              className="w-full accent-[#7C3AED] h-2"
             />
-            <div className="flex justify-between text-[7px] text-black/25 font-medium mt-1">
+            <div className="flex justify-between text-[10px] text-black/25 font-medium mt-1">
               <span>0 (flexível)</span>
               <span>1 (fiel ao character)</span>
             </div>
           </div>
 
           {/* Result Images & Enhance Prompt */}
-          <div className="bg-white border border-black/8 p-4">
+          <div className="bg-white border border-black/8 p-5">
             <div className="flex gap-3">
               <div className="flex-1">
-                <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-2">
+                <p className="text-xs font-black uppercase tracking-widest text-black/40 mb-2">
                   Resultados
                 </p>
                 <select
                   value={resultImages}
                   onChange={(e) => setResultImages(parseInt(e.target.value))}
-                  className="w-full border-2 border-black/10 focus:border-[#7C3AED] outline-none px-3 py-2.5 text-xs font-medium text-black bg-white transition-colors"
+                  className="w-full border-2 border-black/10 focus:border-[#7C3AED] outline-none px-3 py-3 text-sm font-medium text-black bg-white transition-colors"
                 >
                   <option value={1}>1 imagem</option>
                   <option value={4}>4 imagens</option>
                 </select>
               </div>
               <div className="flex-1 flex flex-col justify-end">
-                <p className="text-[9px] font-black uppercase tracking-widest text-black/40 mb-2">
+                <p className="text-xs font-black uppercase tracking-widest text-black/40 mb-2">
                   Enhance Prompt
                 </p>
                 <button
                   onClick={() => setEnhancePrompt(!enhancePrompt)}
-                  className={`w-full border-2 px-3 py-2.5 text-xs font-black uppercase tracking-widest transition-colors ${
+                  className={`w-full border-2 px-3 py-3 text-xs font-black uppercase tracking-widest transition-colors ${
                     enhancePrompt
                       ? "border-[#7C3AED] bg-[#7C3AED]/5 text-[#7C3AED]"
                       : "border-black/10 text-black/30 hover:border-black/20"
@@ -544,11 +544,11 @@ export default function GenerateHiggsfield() {
             disabled={
               !canGenerate || COST_PER_IMAGE > state.credits
             }
-            className="w-full bg-[#7C3AED] text-white py-4 text-[11px] font-black uppercase tracking-widest hover:bg-[#6D28D9] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="w-full bg-[#7C3AED] text-white py-4 min-h-[52px] text-xs font-black uppercase tracking-widest hover:bg-[#6D28D9] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             {generating ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 {generatingStatus || "Gerando..."}
               </span>
             ) : (
@@ -557,12 +557,12 @@ export default function GenerateHiggsfield() {
           </button>
 
           {!selectedSoulId && !generating && trainedModels.length > 0 && (
-            <p className="text-[9px] text-[#7C3AED] font-bold text-center -mt-2 uppercase tracking-wide">
+            <p className="text-[11px] text-[#7C3AED] font-bold text-center -mt-2 uppercase tracking-wide">
               Selecione um modelo com Character ID para continuar
             </p>
           )}
 
-          <p className="text-[9px] text-black/25 font-medium text-center -mt-2">
+          <p className="text-[11px] text-black/25 font-medium text-center -mt-2">
             Créditos disponíveis:{" "}
             <span className="font-black text-black/40">{state.credits}</span>
           </p>
@@ -574,12 +574,12 @@ export default function GenerateHiggsfield() {
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-4 bg-red-50 border border-red-200 px-4 py-3"
+              className="mb-4 bg-red-50 border border-red-200 px-5 py-4"
             >
               <div className="flex items-start gap-2">
                 <span className="text-red-400 text-sm flex-shrink-0 mt-0.5">⚠</span>
-                <p className="text-[10px] text-red-700 font-medium flex-1">{genError}</p>
-                <button onClick={() => setGenError(null)} className="text-red-300 hover:text-red-500 text-xs font-black flex-shrink-0">✕</button>
+                <p className="text-xs text-red-700 font-medium flex-1">{genError}</p>
+                <button onClick={() => setGenError(null)} className="text-red-300 hover:text-red-500 text-sm font-black flex-shrink-0">✕</button>
               </div>
               <button
                 onClick={async () => {
@@ -587,7 +587,7 @@ export default function GenerateHiggsfield() {
                   try { const r = await api.credits.balance(); updateCredits(r.balance); } catch {}
                   window.location.reload();
                 }}
-                className="mt-2 ml-5 text-[9px] font-black uppercase tracking-widest text-[#7C3AED] hover:underline"
+                className="mt-2 ml-6 text-[11px] font-black uppercase tracking-widest text-[#7C3AED] hover:underline"
               >
                 Verificar Histórico
               </button>
@@ -598,19 +598,19 @@ export default function GenerateHiggsfield() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="h-full min-h-[400px] border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-4 p-8 text-center"
+              className="h-full min-h-[400px] border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-5 p-8 text-center"
             >
-              <span className="text-5xl opacity-10">⚡</span>
+              <span className="text-6xl opacity-10">⚡</span>
               <div>
-                <p className="text-sm font-black uppercase tracking-tight text-black/25">
+                <p className="text-lg font-black uppercase tracking-tight text-black/25">
                   Geração com Character ID
                 </p>
-                <p className="text-xs text-black/20 font-medium mt-1 max-w-xs">
+                <p className="text-sm text-black/20 font-medium mt-1 max-w-sm">
                   Selecione um modelo treinado, escreva um prompt e gere imagens
                   com a identidade visual do seu Character
                 </p>
               </div>
-              <div className="text-[9px] text-black/20 font-medium border border-black/8 px-3 py-1.5">
+              <div className="text-[11px] text-black/20 font-medium border border-black/8 px-4 py-2">
                 Higgsfield AI · Soul 2.0 Character
                 {selectedSoulId && (
                   <span> · {selectedSoulId.slice(0, 8)}...</span>
@@ -621,21 +621,21 @@ export default function GenerateHiggsfield() {
 
           {generating && (
             <div>
-              <div className="flex items-center gap-3 mb-4 p-4 bg-white border border-black/8">
-                <div className="w-4 h-4 border-2 border-[#7C3AED]/30 border-t-[#7C3AED] rounded-full animate-spin flex-shrink-0" />
+              <div className="flex items-center gap-3 mb-4 p-5 bg-white border border-black/8">
+                <div className="w-5 h-5 border-2 border-[#7C3AED]/30 border-t-[#7C3AED] rounded-full animate-spin flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-widest text-black">
+                  <p className="text-xs font-black uppercase tracking-widest text-black">
                     {generatingStatus || "Gerando..."}
                   </p>
-                  <p className="text-[9px] text-black/40 font-medium mt-0.5 italic truncate">
+                  <p className="text-[11px] text-black/40 font-medium mt-0.5 italic truncate">
                     "{lastPrompt}"
                   </p>
                 </div>
-                <span className="text-[8px] font-black text-black/20 uppercase tracking-widest flex-shrink-0">
+                <span className="text-[10px] font-black text-black/20 uppercase tracking-widest flex-shrink-0">
                   Soul 2.0
                 </span>
               </div>
-              <div className="aspect-square bg-black/5 animate-pulse w-full max-w-sm" />
+              <div className="aspect-square bg-black/5 animate-pulse w-full max-w-md rounded-sm" />
             </div>
           )}
 
@@ -643,13 +643,13 @@ export default function GenerateHiggsfield() {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-[11px] font-black uppercase tracking-widest text-black">
+                  <p className="text-xs font-black uppercase tracking-widest text-black">
                     {results.length}{" "}
                     {results.length === 1
                       ? "imagem gerada"
                       : "imagens geradas"}
                   </p>
-                  <p className="text-[9px] text-black/40 font-medium mt-0.5 italic truncate max-w-xs">
+                  <p className="text-[11px] text-black/40 font-medium mt-0.5 italic truncate max-w-xs">
                     "{lastPrompt}"
                   </p>
                 </div>
@@ -658,16 +658,16 @@ export default function GenerateHiggsfield() {
                   disabled={
                     !canGenerate || COST_PER_IMAGE > state.credits
                   }
-                  className="bg-black text-white px-4 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-[#7C3AED] transition-colors disabled:opacity-30"
+                  className="bg-black text-white px-5 py-3 text-xs font-black uppercase tracking-widest hover:bg-[#7C3AED] transition-colors disabled:opacity-30 min-h-[44px]"
                 >
                   Gerar Novamente
                 </button>
               </div>
 
               <div
-                className={`grid gap-3 ${
+                className={`grid gap-4 ${
                   results.length === 1
-                    ? "grid-cols-1 max-w-sm"
+                    ? "grid-cols-1 max-w-md"
                     : "grid-cols-2"
                 }`}
               >
@@ -678,7 +678,7 @@ export default function GenerateHiggsfield() {
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: i * 0.1 }}
-                      className="aspect-square relative group overflow-hidden bg-black/5"
+                      className="aspect-square relative group overflow-hidden bg-black/5 rounded-sm"
                     >
                       <img
                         src={url}
@@ -692,7 +692,7 @@ export default function GenerateHiggsfield() {
                             target="_blank"
                             rel="noreferrer"
                             download
-                            className="bg-white text-black px-4 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-[#7C3AED] hover:text-white transition-colors"
+                            className="bg-white text-black px-5 py-3 text-xs font-black uppercase tracking-widest hover:bg-[#7C3AED] hover:text-white transition-colors min-h-[44px] flex items-center"
                           >
                             Download
                           </a>
@@ -702,7 +702,7 @@ export default function GenerateHiggsfield() {
                                 results.filter((_, idx) => idx !== i),
                               )
                             }
-                            className="bg-black/70 text-white px-3 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors"
+                            className="bg-black/70 text-white px-4 py-3 text-xs font-black uppercase tracking-widest hover:bg-red-600 transition-colors min-h-[44px]"
                           >
                             ✕
                           </button>
@@ -718,10 +718,10 @@ export default function GenerateHiggsfield() {
           {state.generations.filter((g) => g.type === "image").length >
             0 && (
             <div className="mt-8">
-              <p className="text-[9px] font-black uppercase tracking-widest text-black/30 mb-3">
+              <p className="text-[11px] font-black uppercase tracking-widest text-black/30 mb-3">
                 Gerações Recentes
               </p>
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
                 {state.generations
                   .filter((g) => g.type === "image")
                   .slice(0, 12)
@@ -732,7 +732,7 @@ export default function GenerateHiggsfield() {
                       target="_blank"
                       rel="noreferrer"
                       download
-                      className="aspect-square bg-black/5 overflow-hidden relative group cursor-pointer block"
+                      className="aspect-square bg-black/5 overflow-hidden relative group cursor-pointer block rounded-sm"
                     >
                       <img
                         src={gen.url}
@@ -740,7 +740,7 @@ export default function GenerateHiggsfield() {
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                        <span className="text-white text-[10px] font-black">
+                        <span className="text-white text-sm font-black">
                           ↓
                         </span>
                       </div>

@@ -45,7 +45,7 @@ const CREDIT_PACKS = [
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-8">
-      <p className="text-[9px] font-black uppercase tracking-widest text-black/30 mb-3">{title}</p>
+      <p className="text-[11px] font-black uppercase tracking-widest text-black/30 mb-3">{title}</p>
       {children}
     </div>
   );
@@ -150,41 +150,41 @@ export default function Settings() {
                 </div>
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center"
                   onClick={() => avatarInputRef.current?.click()}>
-                  <span className="text-white text-[9px] font-black leading-tight text-center px-1">TROCAR<br/>FOTO</span>
+                  <span className="text-white text-xs font-black leading-tight text-center px-1">TROCAR<br/>FOTO</span>
                 </div>
                 <input ref={avatarInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleAvatarChange} />
               </div>
               <div>
-                <p className="text-xs font-black text-black">{name}</p>
-                <p className="text-[9px] text-black/30 font-medium">{email}</p>
+                <p className="text-sm font-black text-black">{name}</p>
+                <p className="text-[11px] text-black/30 font-medium">{email}</p>
                 <button onClick={() => avatarInputRef.current?.click()}
-                  className="text-[8px] font-black uppercase tracking-widest text-[#C0001A] hover:underline mt-1 block">
+                  className="text-[10px] font-black uppercase tracking-widest text-[#C0001A] hover:underline mt-1 block">
                   {avatarPreview ? t("settings.changePhoto") : t("settings.addPhoto")}
                 </button>
                 {avatarPreview && (
                   <button onClick={() => { setAvatarPreview(null); updateProfile({ avatar: null }); }}
-                    className="text-[8px] font-black uppercase tracking-widest text-black/25 hover:text-black/50 transition-colors mt-0.5 block">
+                    className="text-[10px] font-black uppercase tracking-widest text-black/25 hover:text-black/50 transition-colors mt-0.5 block">
                     {t("settings.removePhoto")}
                   </button>
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[8px] font-black uppercase tracking-widest text-black/30 block mb-1.5">{t("settings.name")}</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-black/30 block mb-1.5">{t("settings.name")}</label>
                 <input value={name} onChange={(e) => setName(e.target.value)}
-                  className="w-full border border-black/10 px-3 py-2 text-xs font-medium text-black outline-none focus:border-[#C0001A] transition-colors" />
+                  className="w-full border border-black/10 px-3 py-3 text-sm font-medium text-black outline-none focus:border-[#C0001A] transition-colors" />
               </div>
               <div>
-                <label className="text-[8px] font-black uppercase tracking-widest text-black/30 block mb-1.5">{t("settings.email")}</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-black/30 block mb-1.5">{t("settings.email")}</label>
                 <input value={email} onChange={(e) => setEmail(e.target.value)}
-                  className="w-full border border-black/10 px-3 py-2 text-xs font-medium text-black outline-none focus:border-[#C0001A] transition-colors" />
+                  className="w-full border border-black/10 px-3 py-3 text-sm font-medium text-black outline-none focus:border-[#C0001A] transition-colors" />
               </div>
             </div>
 
             <button onClick={handleSaveProfile} disabled={!name.trim() || !email.trim()}
-              className="bg-[#C0001A] text-white px-5 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              className="bg-[#C0001A] text-white px-5 min-h-[44px] text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               {saved ? t("settings.saved") : t("settings.saveChanges")}
             </button>
           </div>
@@ -198,16 +198,16 @@ export default function Settings() {
                   <span className="text-sm font-black text-black uppercase">
                     {PLANS.find((p) => p.id === currentPlan)?.name ?? t("settings.free")}
                   </span>
-                  <span className="text-[7px] font-black uppercase tracking-widest text-white bg-black/25 px-1.5 py-0.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white bg-black/25 px-1.5 py-0.5">
                     {currentPlan === "free" ? t("settings.free") : t("settings.active")}
                   </span>
                 </div>
-                <p className="text-[9px] text-black/30 font-medium">
+                <p className="text-[11px] text-black/30 font-medium">
                   {t("settings.remainingCredits", { n: state.credits })}
                 </p>
               </div>
               {currentPlan === "free" && (
-                <button className="bg-[#C0001A] text-white px-4 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors">
+                <button className="bg-[#C0001A] text-white px-5 min-h-[44px] text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors">
                   {t("settings.upgrade")}
                 </button>
               )}
@@ -219,33 +219,33 @@ export default function Settings() {
               <div key={plan.id}
                 className={`border-2 p-4 transition-colors ${plan.id === currentPlan ? "border-[#C0001A] bg-[#C0001A]/5" : "border-black/8 bg-white"}`}>
                 {plan.id === "studio" && (
-                  <div className="text-[7px] font-black uppercase tracking-widest text-white bg-[#C0001A] px-1.5 py-0.5 inline-block mb-2">
+                  <div className="text-[11px] font-black uppercase tracking-widest text-white bg-[#C0001A] px-2 py-0.5 inline-block mb-2">
                     {t("settings.popular")}
                   </div>
                 )}
-                <p className="text-[10px] font-black uppercase tracking-widest text-black mb-0.5">
+                <p className="text-xs font-black uppercase tracking-widest text-black mb-0.5">
                   {plan.id === "free" ? t("settings.free") : plan.name}
                 </p>
                 <p className="text-lg font-black text-black leading-none">
-                  {plan.price}<span className="text-[9px] font-bold text-black/30">{plan.period}</span>
+                  {plan.price}<span className="text-[11px] font-bold text-black/30">{plan.period}</span>
                 </p>
                 <ul className="mt-3 space-y-1.5">
                   {plan.features.map((f) => (
                     <li key={f} className="flex items-start gap-1.5">
-                      <span className={`text-[8px] mt-0.5 ${plan.id === currentPlan ? "text-[#C0001A]" : "text-black/25"}`}>✓</span>
-                      <span className="text-[8px] text-black/50 font-medium leading-snug">{f}</span>
+                      <span className={`text-[10px] mt-0.5 ${plan.id === currentPlan ? "text-[#C0001A]" : "text-black/25"}`}>✓</span>
+                      <span className="text-[10px] text-black/50 font-medium leading-snug">{f}</span>
                     </li>
                   ))}
                 </ul>
                 {plan.id !== currentPlan && (
-                  <button className={`w-full mt-4 py-2 text-[8px] font-black uppercase tracking-widest transition-colors ${
+                  <button className={`w-full mt-4 py-3 text-xs font-black uppercase tracking-widest transition-colors ${
                     plan.id === "studio" ? "bg-[#C0001A] text-white hover:bg-[#a00015]" : "border border-black/15 text-black/40 hover:border-black/30 hover:text-black"
                   }`}>
                     {plan.id === "free" ? t("settings.currentPlanLabel") : t("settings.subscribe")}
                   </button>
                 )}
                 {plan.id === currentPlan && (
-                  <div className="w-full mt-4 py-2 text-[8px] font-black uppercase tracking-widest text-center text-[#C0001A]">
+                  <div className="w-full mt-4 py-3 text-xs font-black uppercase tracking-widest text-center text-[#C0001A]">
                     {t("settings.currentPlanLabel")}
                   </div>
                 )}
@@ -270,21 +270,21 @@ export default function Settings() {
                       ? "border-[#C0001A] bg-[#C0001A]/5 hover:bg-[#C0001A]/10"
                       : "border-black/8 bg-white hover:border-[#C0001A] hover:bg-[#C0001A]/3"
                   }`}>
-                  {isSelected && <span className="absolute top-2 right-2 text-white text-[10px] font-black">✓</span>}
+                  {isSelected && <span className="absolute top-2 right-2 text-white text-xs font-black">✓</span>}
                   {!isSelected && pack.highlight && (
-                    <div className="text-[7px] font-black uppercase tracking-widest text-white bg-[#C0001A] px-1.5 py-0.5 inline-block mb-2">
+                    <div className="text-[9px] font-black uppercase tracking-widest text-white bg-[#C0001A] px-1.5 py-0.5 inline-block mb-2">
                       {t("settings.bestValue")}
                     </div>
                   )}
                   {isSelected && (
-                    <div className="text-[7px] font-black uppercase tracking-widest text-white/70 bg-white/20 px-1.5 py-0.5 inline-block mb-2">
+                    <div className="text-[9px] font-black uppercase tracking-widest text-white/70 bg-white/20 px-1.5 py-0.5 inline-block mb-2">
                       {t("settings.selected")}
                     </div>
                   )}
                   <p className={`text-lg font-black leading-none ${isSelected ? "text-white" : "text-black"}`}>{pack.credits}</p>
-                  <p className={`text-[8px] font-bold mb-2 ${isSelected ? "text-white/60" : "text-black/30"}`}>{t("settings.credits")}</p>
+                  <p className={`text-[10px] font-bold mb-2 ${isSelected ? "text-white/60" : "text-black/30"}`}>{t("settings.credits")}</p>
                   <p className={`text-sm font-black ${isSelected ? "text-white" : pack.highlight ? "text-[#C0001A]" : "text-black"}`}>{pack.price}</p>
-                  <p className={`text-[7px] font-medium ${isSelected ? "text-white/50" : "text-black/25"}`}>{pack.per}</p>
+                  <p className={`text-[9px] font-medium ${isSelected ? "text-white/50" : "text-black/25"}`}>{pack.per}</p>
                 </motion.button>
               );
             })}
@@ -297,20 +297,20 @@ export default function Settings() {
                 {buyStep === "idle" && (
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-black">
+                      <p className="text-xs font-black uppercase tracking-widest text-black">
                         {t("settings.creditsSelected", { n: selectedPack })}
                       </p>
-                      <p className="text-[9px] text-black/40 font-medium mt-0.5">
+                      <p className="text-[11px] text-black/40 font-medium mt-0.5">
                         {CREDIT_PACKS.find(p => p.credits === selectedPack)?.price} · {CREDIT_PACKS.find(p => p.credits === selectedPack)?.per}
                       </p>
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
                       <button onClick={() => { setSelectedPack(null); setBuyStep("idle"); }}
-                        className="border border-black/10 text-black/40 px-4 py-2 text-[9px] font-black uppercase tracking-widest hover:border-black/25 hover:text-black transition-colors">
+                        className="border border-black/10 text-black/40 px-4 min-h-[44px] text-xs font-black uppercase tracking-widest hover:border-black/25 hover:text-black transition-colors">
                         {t("settings.cancel")}
                       </button>
                       <button onClick={() => setBuyStep("confirm")}
-                        className="bg-[#C0001A] text-white px-6 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors">
+                        className="bg-[#C0001A] text-white px-6 min-h-[44px] text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors">
                         {t("settings.buyNow")}
                       </button>
                     </div>
@@ -319,8 +319,8 @@ export default function Settings() {
 
                 {buyStep === "confirm" && (
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-black mb-1">{t("settings.confirmPurchase")}</p>
-                    <p className="text-[9px] text-black/40 font-medium mb-4">
+                    <p className="text-xs font-black uppercase tracking-widest text-black mb-1">{t("settings.confirmPurchase")}</p>
+                    <p className="text-[11px] text-black/40 font-medium mb-4">
                       {t("settings.buyConfirm")} <span className="font-black text-black">{selectedPack} {t("settings.credits")}</span> {t("settings.buyCreditsFor")} <span className="font-black text-black">{CREDIT_PACKS.find(p => p.credits === selectedPack)?.price}</span>. {t("settings.buyImmediate")}
                     </p>
                     <div className="flex gap-2">
@@ -335,11 +335,11 @@ export default function Settings() {
                           setBuyStep("done");
                           setTimeout(() => { setBuyStep("idle"); setSelectedPack(null); }, 3000);
                         }}
-                        className="bg-[#C0001A] text-white px-6 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors">
+                        className="bg-[#C0001A] text-white px-6 min-h-[44px] text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors">
                         {t("settings.confirmPayment")}
                       </button>
                       <button onClick={() => setBuyStep("idle")}
-                        className="border border-black/10 text-black/40 px-4 py-2 text-[9px] font-black uppercase tracking-widest hover:border-black/25 hover:text-black transition-colors">
+                        className="border border-black/10 text-black/40 px-4 min-h-[44px] text-xs font-black uppercase tracking-widest hover:border-black/25 hover:text-black transition-colors">
                         {t("settings.back")}
                       </button>
                     </div>
@@ -353,10 +353,10 @@ export default function Settings() {
                 className="bg-white border border-black/8 p-5 flex items-center gap-3">
                 <span className="w-7 h-7 bg-[#C0001A] text-white text-sm font-black flex items-center justify-center flex-shrink-0">✓</span>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-black">
+                  <p className="text-xs font-black uppercase tracking-widest text-black">
                     {t("settings.creditsAdded", { n: selectedPack ?? 0 })}
                   </p>
-                  <p className="text-[9px] text-black/40 font-medium mt-0.5">
+                  <p className="text-[11px] text-black/40 font-medium mt-0.5">
                     {t("settings.creditsBalance", { n: state.credits })}
                   </p>
                 </div>
@@ -374,12 +374,12 @@ export default function Settings() {
             ].map((item) => (
               <div key={item.labelKey} className="flex items-center justify-between px-5 py-4">
                 <div>
-                  <p className="text-[10px] font-black text-black">{t(item.labelKey as Parameters<typeof t>[0])}</p>
-                  <p className="text-[9px] text-black/30 font-medium mt-0.5">{t(item.descKey as Parameters<typeof t>[0])}</p>
+                  <p className="text-xs font-black text-black">{t(item.labelKey as Parameters<typeof t>[0])}</p>
+                  <p className="text-[11px] text-black/30 font-medium mt-0.5">{t(item.descKey as Parameters<typeof t>[0])}</p>
                 </div>
                 <button onClick={() => item.set((v: boolean) => !v)}
-                  className={`relative w-11 h-6 rounded-full transition-colors duration-300 flex-shrink-0 ${item.value ? "bg-[#C0001A]" : "bg-black/15"}`}>
-                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-300 ${item.value ? "translate-x-5" : "translate-x-0"}`} />
+                  className={`relative w-12 h-7 rounded-full transition-colors duration-300 flex-shrink-0 ${item.value ? "bg-[#C0001A]" : "bg-black/15"}`}>
+                  <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-sm transition-transform duration-300 ${item.value ? "translate-x-5.5" : "translate-x-0"}`} />
                 </button>
               </div>
             ))}
@@ -390,10 +390,10 @@ export default function Settings() {
           <div className="bg-white border border-black/8 p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-black text-black">{t("settings.twoFA")}</p>
-                <p className="text-[9px] text-black/30 font-medium mt-0.5">{t("settings.twoFAOff")}</p>
+                <p className="text-xs font-black text-black">{t("settings.twoFA")}</p>
+                <p className="text-[11px] text-black/30 font-medium mt-0.5">{t("settings.twoFAOff")}</p>
               </div>
-              <span className="text-[8px] font-black uppercase tracking-widest text-black/30 border border-black/10 px-2.5 py-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-black/30 border border-black/10 px-2.5 py-1">
                 {t("settings.twoFAComingSoon")}
               </span>
             </div>
@@ -404,11 +404,11 @@ export default function Settings() {
           <div className="bg-white border border-black/8 p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-black text-black">{t("settings.languageLabel")}</p>
-                <p className="text-[9px] text-black/30 font-medium mt-0.5">{t("settings.languageDesc")}</p>
+                <p className="text-xs font-black text-black">{t("settings.languageLabel")}</p>
+                <p className="text-[11px] text-black/30 font-medium mt-0.5">{t("settings.languageDesc")}</p>
               </div>
               <select value={lang} onChange={(e) => setLang(e.target.value as Lang)}
-                className="bg-white border border-black/10 text-[9px] font-black uppercase tracking-widest text-black/50 px-3 py-1.5 outline-none cursor-pointer hover:border-black/25 transition-colors">
+                className="bg-white border border-black/10 text-xs font-black uppercase tracking-widest text-black/50 px-3 py-2.5 outline-none cursor-pointer hover:border-black/25 transition-colors">
                 <option value="pt-BR">Português (BR)</option>
                 <option value="en">English</option>
                 <option value="es">Español</option>
@@ -424,12 +424,12 @@ export default function Settings() {
             <div>
               <div className="flex items-center justify-between px-5 py-4">
                 <div>
-                  <p className="text-[10px] font-black text-black">{t("settings.changePassword")}</p>
-                  <p className="text-[9px] text-black/30 font-medium mt-0.5">{t("settings.changePasswordDesc")}</p>
+                  <p className="text-xs font-black text-black">{t("settings.changePassword")}</p>
+                  <p className="text-[11px] text-black/30 font-medium mt-0.5">{t("settings.changePasswordDesc")}</p>
                 </div>
                 <button
                   onClick={() => { setPwOpen((v) => !v); setPwError(null); setPwDone(false); }}
-                  className={`text-[9px] font-black uppercase tracking-widest border px-4 py-1.5 transition-colors ${
+                  className={`text-xs font-black uppercase tracking-widest border px-4 py-2.5 transition-colors ${
                     pwOpen
                       ? "border-black/20 bg-black text-white"
                       : "border-black/10 text-black/40 hover:border-black/25 hover:text-black"
@@ -457,14 +457,14 @@ export default function Settings() {
                         >
                           <span className="w-8 h-8 bg-[#C0001A] text-white font-black text-sm flex items-center justify-center flex-shrink-0">✓</span>
                           <div>
-                            <p className="text-[10px] font-black text-black uppercase tracking-widest">{t("settings.passwordChanged")}</p>
-                            <p className="text-[9px] text-black/40 font-medium mt-0.5">{t("settings.passwordChangedDesc")}</p>
+                            <p className="text-xs font-black text-black uppercase tracking-widest">{t("settings.passwordChanged")}</p>
+                            <p className="text-[11px] text-black/40 font-medium mt-0.5">{t("settings.passwordChangedDesc")}</p>
                           </div>
                         </motion.div>
                       ) : (
                         <>
                           <div className="pt-4">
-                            <label className="text-[8px] font-black uppercase tracking-widest text-black/30 block mb-1.5">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-black/30 block mb-1.5">
                               {t("settings.currentPassword")}
                             </label>
                             <div className="relative">
@@ -486,7 +486,7 @@ export default function Settings() {
                           </div>
 
                           <div>
-                            <label className="text-[8px] font-black uppercase tracking-widest text-black/30 block mb-1.5">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-black/30 block mb-1.5">
                               {t("settings.newPassword")}
                             </label>
                             <div className="relative">
@@ -521,7 +521,7 @@ export default function Settings() {
                           </div>
 
                           <div>
-                            <label className="text-[8px] font-black uppercase tracking-widest text-black/30 block mb-1.5">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-black/30 block mb-1.5">
                               {t("settings.confirmPassword")}
                             </label>
                             <div className="relative">
@@ -553,7 +553,7 @@ export default function Settings() {
                                 initial={{ opacity: 0, y: -4 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0 }}
-                                className="text-[9px] font-bold text-[#C0001A] flex items-center gap-1.5"
+                                className="text-xs font-bold text-[#C0001A] flex items-center gap-1.5"
                               >
                                 <span>✕</span> {pwError}
                               </motion.p>
@@ -564,13 +564,13 @@ export default function Settings() {
                             <button
                               onClick={handleChangePassword}
                               disabled={!pwNew || !pwConfirm}
-                              className="bg-[#C0001A] text-white px-5 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              className="bg-[#C0001A] text-white px-5 min-h-[44px] text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                               {t("settings.changePasswordBtn")}
                             </button>
                             <button
                               onClick={() => { setPwOpen(false); setPwError(null); setPwCurrent(""); setPwNew(""); setPwConfirm(""); }}
-                              className="border border-black/10 text-black/40 px-4 py-2 text-[9px] font-black uppercase tracking-widest hover:border-black/25 hover:text-black transition-colors"
+                              className="border border-black/10 text-black/40 px-4 min-h-[44px] text-xs font-black uppercase tracking-widest hover:border-black/25 hover:text-black transition-colors"
                             >
                               {t("settings.cancel")}
                             </button>
@@ -586,12 +586,12 @@ export default function Settings() {
             {/* ── DELETE ACCOUNT ── */}
             <div className="flex items-center justify-between px-5 py-4">
               <div>
-                <p className="text-[10px] font-black" style={{ color: "#C0001A" }}>{t("settings.deleteAccount")}</p>
-                <p className="text-[9px] text-black/30 font-medium mt-0.5">{t("settings.deleteAccountDesc")}</p>
+                <p className="text-xs font-black" style={{ color: "#C0001A" }}>{t("settings.deleteAccount")}</p>
+                <p className="text-[11px] text-black/30 font-medium mt-0.5">{t("settings.deleteAccountDesc")}</p>
               </div>
               <button
                 onClick={() => { setDeleteOpen(true); setDeleteInput(""); }}
-                className="text-[9px] font-black uppercase tracking-widest border border-[#C0001A]/30 text-[#C0001A] px-4 py-1.5 hover:bg-[#C0001A] hover:text-white transition-colors"
+                className="text-xs font-black uppercase tracking-widest border border-[#C0001A]/30 text-[#C0001A] px-4 py-2.5 hover:bg-[#C0001A] hover:text-white transition-colors"
               >
                 {t("settings.delete")}
               </button>
@@ -629,7 +629,7 @@ export default function Settings() {
                 </div>
                 <div>
                   <p className="text-white text-[11px] font-black uppercase tracking-widest leading-none">{t("settings.deleteConfirmTitle")}</p>
-                  <p className="text-white/60 text-[9px] font-medium mt-0.5">{t("settings.deleteAccount")}</p>
+                  <p className="text-white/60 text-[11px] font-medium mt-0.5">{t("settings.deleteAccount")}</p>
                 </div>
               </div>
             </div>
@@ -649,15 +649,15 @@ export default function Settings() {
                   t("settings.deleteItemCredits", { n: state.credits }),
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <span className="text-[#C0001A] text-[9px] font-black">✕</span>
-                    <span className="text-[9px] text-black/60 font-medium">{item}</span>
+                    <span className="text-[#C0001A] text-[10px] font-black">✕</span>
+                    <span className="text-[11px] text-black/60 font-medium">{item}</span>
                   </div>
                 ))}
               </div>
 
               {/* Confirmation input */}
               <div>
-                <label className="text-[8px] font-black uppercase tracking-widest text-black/40 block mb-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-black/40 block mb-2">
                   {t("settings.deleteConfirmType")}{" "}
                   <span className="text-[#C0001A] font-black">{deleteWord}</span>
                 </label>
@@ -681,13 +681,13 @@ export default function Settings() {
                   onClick={resetAccount}
                   disabled={!canDelete}
                   whileTap={canDelete ? { scale: 0.98 } : {}}
-                  className="w-full bg-[#C0001A] text-white py-3 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-25 disabled:cursor-not-allowed enabled:hover:bg-[#a00015]"
+                  className="w-full bg-[#C0001A] text-white py-3 text-xs font-black uppercase tracking-widest transition-colors disabled:opacity-25 disabled:cursor-not-allowed enabled:hover:bg-[#a00015]"
                 >
                   {t("settings.deleteConfirmBtn")}
                 </motion.button>
                 <button
                   onClick={() => setDeleteOpen(false)}
-                  className="w-full border border-black/10 text-black/40 py-2.5 text-[9px] font-black uppercase tracking-widest hover:border-black/25 hover:text-black transition-colors"
+                  className="w-full border border-black/10 text-black/40 py-3 text-xs font-black uppercase tracking-widest hover:border-black/25 hover:text-black transition-colors"
                 >
                   {t("settings.deleteConfirmCancel")}
                 </button>

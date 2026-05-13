@@ -47,6 +47,7 @@ interface StoreContextValue {
   updateModel: (id: string, patch: Partial<Model>) => void;
   deleteModel: (id: string) => void;
   addGeneration: (gen: Generation) => void;
+  refreshGenerations: () => Promise<void>;
   deleteGeneration: (id: string) => void;
   /** APENAS DEV/ADMIN. NAO usar em fluxo normal de geracao.
    * Faz POST /api/credits/add (requer CREDITS_SECRET no backend).
@@ -147,6 +148,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const refreshGenerations = useCallback(async () => {
+    const res = await api.generations.list();
+    setState((prev) => ({
+      ...prev,
+      generations: res.generations.map(mapGeneration),
+    }));
+  }, []);
+
   const deleteGeneration = useCallback((id: string) => {
     setState((prev) => ({
       ...prev,
@@ -217,6 +226,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         updateModel,
         deleteModel,
         addGeneration,
+        refreshGenerations,
         deleteGeneration,
         devAddCreditsUnsafe,
         updateCredits,

@@ -5,10 +5,6 @@ require "securerandom"
 
 module Api
   class GenerateController < ApplicationController
-    rescue_from PromptSafetyService::SafetyError do |e|
-      render json: { error: e.message }, status: :unprocessable_entity
-    end
-
     rescue_from UploadValidator::ValidationError do |e|
       render json: { error: e.message }, status: :unprocessable_entity
     end
@@ -56,32 +52,33 @@ module Api
       return render_error("Prompt e obrigatorio") if prompt.blank?
       return render_error("Imagem de referencia e obrigatoria") if images.empty?
       return render_error("Maximo de 6 imagens de referencia") if images.size > 6
-      PromptSafetyService.check!(prompt)
-
       size = SIZE_MAP[[aspect, res]] || "1024*1024"
 
-      job = current_user.generation_jobs.create!(
-        provider: "wavespeed",
-        provider_model: QWEN_MODEL,
-        generation_type: "image",
-        status: "queued",
-        cost_credits: Pricing::QWEN_IMAGE,
-        prompt: prompt,
-        input_urls: images,
-        aspect_ratio: aspect.presence,
-        resolution: res.presence,
-        seed: seed,
-        idempotency_key: "gen:image:#{SecureRandom.uuid}"
-      )
+      job = nil
+      ActiveRecord::Base.transaction do
+        job = current_user.generation_jobs.create!(
+          provider: "wavespeed",
+          provider_model: QWEN_MODEL,
+          generation_type: "image",
+          status: "queued",
+          cost_credits: Pricing::QWEN_IMAGE,
+          prompt: prompt,
+          input_urls: images,
+          aspect_ratio: aspect.presence,
+          resolution: res.presence,
+          seed: seed,
+          idempotency_key: "gen:image:#{SecureRandom.uuid}"
+        )
 
-      CreditLedger.spend!(
-        user: current_user,
-        amount: Pricing::QWEN_IMAGE,
-        source: "qwen_image",
-        idempotency_key: "generation_job:#{job.id}:charge",
-        reference: job
-      )
-      job.update!(charged_at: Time.current, status: "processing")
+        CreditLedger.spend!(
+          user: current_user,
+          amount: Pricing::QWEN_IMAGE,
+          source: "qwen_image",
+          idempotency_key: "generation_job:#{job.id}:charge",
+          reference: job
+        )
+        job.update!(charged_at: Time.current, status: "processing")
+      end
 
       payload = { prompt: prompt, images: images, size: size }
       payload[:seed] = seed.to_i if seed.present? && seed.to_s != "-1"
@@ -192,32 +189,34 @@ module Api
 
       return render_error("Prompt e obrigatorio") if prompt.blank?
       return render_error("Imagem de referencia e obrigatoria") if image.blank?
-      PromptSafetyService.check!(prompt)
 
-      job = current_user.generation_jobs.create!(
-        provider: "wavespeed",
-        provider_model: SEEDANCE_MODEL,
-        generation_type: "video",
-        status: "queued",
-        cost_credits: Pricing::SEEDANCE_VIDEO,
-        prompt: prompt,
-        input_urls: [image],
-        aspect_ratio: aspect_ratio,
-        resolution: resolution,
-        duration: duration,
-        seed: seed,
-        thumbnail_url: image,
-        idempotency_key: "gen:video:#{SecureRandom.uuid}"
-      )
+      job = nil
+      ActiveRecord::Base.transaction do
+        job = current_user.generation_jobs.create!(
+          provider: "wavespeed",
+          provider_model: SEEDANCE_MODEL,
+          generation_type: "video",
+          status: "queued",
+          cost_credits: Pricing::SEEDANCE_VIDEO,
+          prompt: prompt,
+          input_urls: [image],
+          aspect_ratio: aspect_ratio,
+          resolution: resolution,
+          duration: duration,
+          seed: seed,
+          thumbnail_url: image,
+          idempotency_key: "gen:video:#{SecureRandom.uuid}"
+        )
 
-      CreditLedger.spend!(
-        user: current_user,
-        amount: Pricing::SEEDANCE_VIDEO,
-        source: "seedance_video",
-        idempotency_key: "generation_job:#{job.id}:charge",
-        reference: job
-      )
-      job.update!(charged_at: Time.current, status: "processing")
+        CreditLedger.spend!(
+          user: current_user,
+          amount: Pricing::SEEDANCE_VIDEO,
+          source: "seedance_video",
+          idempotency_key: "generation_job:#{job.id}:charge",
+          reference: job
+        )
+        job.update!(charged_at: Time.current, status: "processing")
+      end
 
       payload = {
         prompt: prompt, image: image, aspect_ratio: aspect_ratio,
@@ -334,36 +333,38 @@ module Api
 
       return render_error("Prompt e obrigatorio") if prompt.blank?
       return render_error("Maximo de 6 imagens de referencia") if images.size > 6
-      PromptSafetyService.check!(prompt)
 
       if images.any? { |img| img.start_with?("data:") }
         public_urls = upload_images_to_r2(model, images)
         images = public_urls
       end
 
-      job = current_user.generation_jobs.create!(
-        provider: "higgsfield",
-        provider_model: "higgsfield-ai/soul/character",
-        generation_type: "image",
-        status: "queued",
-        cost_credits: Pricing::HIGGSFIELD_CHARACTER,
-        prompt: prompt,
-        input_urls: images,
-        aspect_ratio: aspect_ratio,
-        resolution: resolution,
-        seed: seed,
-        avatar_model: model,
-        idempotency_key: "gen:higgsfield:#{SecureRandom.uuid}"
-      )
+      job = nil
+      ActiveRecord::Base.transaction do
+        job = current_user.generation_jobs.create!(
+          provider: "higgsfield",
+          provider_model: "higgsfield-ai/soul/character",
+          generation_type: "image",
+          status: "queued",
+          cost_credits: Pricing::HIGGSFIELD_CHARACTER,
+          prompt: prompt,
+          input_urls: images,
+          aspect_ratio: aspect_ratio,
+          resolution: resolution,
+          seed: seed,
+          avatar_model: model,
+          idempotency_key: "gen:higgsfield:#{SecureRandom.uuid}"
+        )
 
-      CreditLedger.spend!(
-        user: current_user,
-        amount: Pricing::HIGGSFIELD_CHARACTER,
-        source: "higgsfield_character",
-        idempotency_key: "generation_job:#{job.id}:charge",
-        reference: job
-      )
-      job.update!(charged_at: Time.current, status: "processing")
+        CreditLedger.spend!(
+          user: current_user,
+          amount: Pricing::HIGGSFIELD_CHARACTER,
+          source: "higgsfield_character",
+          idempotency_key: "generation_job:#{job.id}:charge",
+          reference: job
+        )
+        job.update!(charged_at: Time.current, status: "processing")
+      end
 
       options = {
         aspect_ratio: aspect_ratio,
@@ -676,8 +677,7 @@ module Api
       Rails.logger.error(exception.backtrace&.first(5)&.join("\n"))
 
       render json: {
-        error: "Erro interno ao processar resultado",
-        debug: exception.class.name
+        error: "Erro interno ao processar resultado"
       }, status: :internal_server_error
     end
 

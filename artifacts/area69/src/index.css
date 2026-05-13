@@ -193,3 +193,29 @@
 }
 
 .font-cursive { font-family: 'Dancing Script', cursive; }
+
+/* ── AREA69 visual helpers ────────────────────────────────────── */
+.area-card {
+  @apply bg-white border border-black/8;
+}
+.area-label {
+  @apply text-[11px] font-black uppercase tracking-widest text-black/40;
+}
+.area-input {
+  @apply w-full border-2 border-black/10 focus:border-[#C0001A] outline-none px-3 py-2.5 text-sm font-medium text-black placeholder:text-black/25 transition-colors;
+}
+.area-btn-primary {
+  @apply bg-[#C0001A] text-white font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors disabled:opacity-30 disabled:cursor-not-allowed;
+}
+.area-btn-secondary {
+  @apply border-2 border-black/10 text-black/40 font-black uppercase tracking-widest hover:border-black/20 hover:text-black transition-colors;
+}
+.area-text-muted {
+  @apply text-xs text-black/40 font-medium;
+}
+.area-section-title {
+  @apply text-sm font-black uppercase tracking-tight text-black;
+}
+.area-empty-state {
+  @apply flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-black/10;
+}

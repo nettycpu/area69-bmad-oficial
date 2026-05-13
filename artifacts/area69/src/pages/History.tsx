@@ -59,7 +59,7 @@ export default function History() {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-colors ${
+              className={`px-4 min-h-[44px] text-xs font-black uppercase tracking-widest transition-colors ${
                 filter === f
                   ? "bg-[#C0001A] text-white"
                   : "bg-white border border-black/10 text-black/40 hover:text-black hover:border-black/25"
@@ -77,7 +77,7 @@ export default function History() {
         <select
           value={modelFilter}
           onChange={(e) => setModelFilter(e.target.value)}
-          className="ml-auto bg-white border border-black/10 text-[9px] font-black uppercase tracking-widest text-black/50 px-3 py-1.5 outline-none cursor-pointer hover:border-black/25 transition-colors"
+          className="ml-auto bg-white border border-black/10 text-xs font-black uppercase tracking-widest text-black/50 px-3 min-h-[44px] outline-none cursor-pointer hover:border-black/25 transition-colors"
         >
           <option value="all">{t("history.allModels")}</option>
           {modelNames.map((n) => (
@@ -88,13 +88,13 @@ export default function History() {
 
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="w-14 h-14 bg-black/5 flex items-center justify-center mb-4">
-            <svg className="w-6 h-6 text-black/20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="w-16 h-16 bg-black/5 flex items-center justify-center mb-4">
+            <svg className="w-7 h-7 text-black/20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <p className="text-xs font-black uppercase tracking-widest text-black/25">{t("history.empty")}</p>
-          <p className="text-[10px] text-black/20 font-medium mt-1">{t("history.emptyDesc")}</p>
+          <p className="text-sm font-black uppercase tracking-widest text-black/25">{t("history.empty")}</p>
+          <p className="text-xs text-black/20 font-medium mt-1">{t("history.emptyDesc")}</p>
         </div>
       ) : (
         <>
@@ -139,14 +139,14 @@ export default function History() {
                   )}
 
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-2.5">
-                    <p className="text-[8px] text-white/90 font-medium leading-snug line-clamp-2">{gen.prompt}</p>
+                    <p className="text-[10px] text-white/90 font-medium leading-snug line-clamp-2">{gen.prompt}</p>
                     <div className="flex items-center justify-between mt-1.5">
-                      <span className="text-[7px] text-white/50 font-bold">{gen.modelName}</span>
-                      <span className="text-[7px] text-white/50 font-bold">{timeAgo(gen.createdAt, t)}</span>
+                      <span className="text-[9px] text-white/50 font-bold">{gen.modelName}</span>
+                      <span className="text-[9px] text-white/50 font-bold">{timeAgo(gen.createdAt, t)}</span>
                     </div>
                   </div>
 
-                  <div className={`absolute top-2 left-2 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-wider ${
+                  <div className={`absolute top-2 left-2 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
                     gen.type === "video" ? "bg-[#C0001A] text-white" : "bg-black/40 text-white"
                   }`}>
                     {gen.type === "video" ? t("history.videoTag") : t("history.imageTag")}
@@ -160,7 +160,7 @@ export default function History() {
             <div className="flex justify-center mt-8">
               <button
                 onClick={() => setVisibleCount((v) => v + ITEMS_PER_PAGE)}
-                className="border-2 border-black/10 text-black/40 px-8 py-3 text-[9px] font-black uppercase tracking-widest hover:border-[#C0001A] hover:text-[#C0001A] transition-colors"
+                className="border-2 border-black/10 text-black/40 px-8 min-h-[48px] text-xs font-black uppercase tracking-widest hover:border-[#C0001A] hover:text-[#C0001A] transition-colors"
               >
                 {t("history.loadMore")} ({filtered.length - visibleCount})
               </button>
@@ -207,22 +207,22 @@ export default function History() {
                 />
               )}
 
-              <div className="bg-[#111] px-4 py-3">
-                <p className="text-[10px] text-white/70 font-medium leading-snug">{selected.prompt}</p>
+              <div className="bg-[#111] px-5 py-4">
+                <p className="text-xs text-white/70 font-medium leading-snug">{selected.prompt}</p>
                 <div className="flex items-center justify-between mt-2">
                   <div className="flex items-center gap-3">
-                    <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 ${
+                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 ${
                       selected.type === "video" ? "bg-[#C0001A] text-white" : "bg-white/10 text-white/60"
                     }`}>
                       {selected.type === "video" ? t("history.videoTag") : t("history.imageTag")}
                     </span>
-                    <span className="text-[8px] text-white/30 font-bold">{selected.modelName}</span>
-                    <span className="text-[8px] text-white/30 font-bold">{timeAgo(selected.createdAt, t)}</span>
+                    <span className="text-[10px] text-white/30 font-bold">{selected.modelName}</span>
+                    <span className="text-[10px] text-white/30 font-bold">{timeAgo(selected.createdAt, t)}</span>
                   </div>
                   <a
                     href={selected.url}
                     download
-                    className="text-[8px] font-black uppercase tracking-widest text-white/50 hover:text-white transition-colors flex items-center gap-1"
+                    className="text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-white transition-colors flex items-center gap-1"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {t("history.download")}

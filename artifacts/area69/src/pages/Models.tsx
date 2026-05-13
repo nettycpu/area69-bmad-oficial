@@ -13,7 +13,7 @@ const TRAINING_COST = 150;
 function ModelCard({ model, onDelete, onStatusUpdate }: {
   model: Model;
   onDelete: () => void;
-  onStatusUpdate: (id: string, status: string, soulId?: string) => void;
+  onStatusUpdate: (id: string, status: string, soulId?: string, credits?: number) => void;
 }) {
   const [confirm, setConfirm] = useState(false);
   const { t, lang } = useI18n();
@@ -28,7 +28,7 @@ function ModelCard({ model, onDelete, onStatusUpdate }: {
       try {
         const res = await api.training.status(numericId);
         if (res.model.status !== "training") {
-          onStatusUpdate(model.id, res.model.status, res.model.soul_id ?? undefined);
+          onStatusUpdate(model.id, res.model.status, res.model.soul_id ?? undefined, res.credits);
           clearInterval(interval);
         }
       } catch {
@@ -58,13 +58,13 @@ function ModelCard({ model, onDelete, onStatusUpdate }: {
 
         <div className="absolute top-2 left-2">
           {model.status === "ready" && (
-            <span className="bg-white text-black text-[9px] font-black uppercase tracking-widest px-2 py-0.5 shadow-sm">{t("models.status.ready")}</span>
+            <span className="bg-white text-black text-[11px] font-black uppercase tracking-widest px-2 py-0.5 shadow-sm">{t("models.status.ready")}</span>
           )}
           {model.status === "training" && (
-            <span className="bg-[#C0001A] text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5">{t("models.status.training")}</span>
+            <span className="bg-[#C0001A] text-white text-[11px] font-black uppercase tracking-widest px-2 py-0.5">{t("models.status.training")}</span>
           )}
           {model.status === "failed" && (
-            <span className="bg-black text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5">{t("models.status.failed")}</span>
+            <span className="bg-black text-white text-[11px] font-black uppercase tracking-widest px-2 py-0.5">{t("models.status.failed")}</span>
           )}
         </div>
 
@@ -75,12 +75,12 @@ function ModelCard({ model, onDelete, onStatusUpdate }: {
             )}
             <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-3 p-4">
               <div className="w-10 h-10 border-4 border-white/20 border-t-white rounded-full animate-spin" />
-              <p className="text-white text-[10px] font-black uppercase tracking-widest">{t("models.status.inTraining")}</p>
-              <p className="text-white/50 text-[9px] font-medium text-center">Soul ID · Higgsfield</p>
+              <p className="text-white text-xs font-black uppercase tracking-widest">{t("models.status.inTraining")}</p>
+              <p className="text-white/50 text-[11px] font-medium text-center">Soul ID · Higgsfield</p>
               <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden">
                 <div className="h-full bg-[#C0001A] animate-pulse w-2/3" />
               </div>
-              <p className="text-white/40 text-[9px] font-medium">~20 min</p>
+              <p className="text-white/40 text-[11px] font-medium">~20 min</p>
             </div>
           </>
         )}
@@ -88,8 +88,8 @@ function ModelCard({ model, onDelete, onStatusUpdate }: {
         {model.status === "failed" && (
           <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-2 p-4">
             <span className="text-3xl">✕</span>
-            <p className="text-white text-[10px] font-black uppercase tracking-widest">{t("models.status.failed")}</p>
-            <p className="text-white/50 text-[9px] font-medium text-center">Créditos reembolsados</p>
+            <p className="text-white text-xs font-black uppercase tracking-widest">{t("models.status.failed")}</p>
+            <p className="text-white/50 text-[11px] font-medium text-center">Créditos reembolsados</p>
           </div>
         )}
       </div>
@@ -97,38 +97,38 @@ function ModelCard({ model, onDelete, onStatusUpdate }: {
       <div className="p-4">
         <p className="text-sm font-black uppercase tracking-tight text-black leading-tight">{model.name}</p>
         {model.soulId && (
-          <p className="text-[9px] text-[#C0001A] font-bold mt-0.5 truncate" title={model.soulId}>
+          <p className="text-[11px] text-[#C0001A] font-bold mt-0.5 truncate" title={model.soulId}>
             Soul ID: {model.soulId.slice(0, 20)}…
           </p>
         )}
         <div className="flex gap-3 mt-1">
-          <p className="text-[10px] text-black/40 font-medium">{model.imagesGenerated} {t("models.imagesCount")}</p>
-          <p className="text-[10px] text-black/40 font-medium">{model.videosGenerated} {t("models.videosCount")}</p>
+          <p className="text-xs text-black/40 font-medium">{model.imagesGenerated} {t("models.imagesCount")}</p>
+          <p className="text-xs text-black/40 font-medium">{model.videosGenerated} {t("models.videosCount")}</p>
         </div>
-        <p className="text-[9px] text-black/30 font-medium mt-0.5">
+        <p className="text-[11px] text-black/30 font-medium mt-0.5">
           {t("models.createdAt")} {new Date(model.createdAt).toLocaleDateString(lang)}
         </p>
 
         <div className="flex gap-2 mt-3">
           {model.status === "ready" && (
             <Link href={`/dashboard/higgsfield?model=${model.id}`}
-              className="flex-1 bg-[#C0001A] text-white py-2 text-[9px] font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors text-center">
+              className="flex-1 bg-[#C0001A] text-white py-3 text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors text-center min-h-[44px] flex items-center justify-center">
               {t("models.useModel")}
             </Link>
           )}
           {!confirm ? (
             <button onClick={() => setConfirm(true)}
-              className="px-3 py-2 border border-black/10 text-[9px] font-black uppercase tracking-widest text-black/40 hover:border-red-500 hover:text-red-500 transition-colors">
+              className="px-4 py-3 border border-black/10 text-xs font-black uppercase tracking-widest text-black/40 hover:border-red-500 hover:text-red-500 transition-colors min-h-[44px]">
               ✕
             </button>
           ) : (
             <div className="flex gap-1 flex-1">
               <button onClick={onDelete}
-                className="flex-1 bg-red-500 text-white py-2 text-[9px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors">
+                className="flex-1 bg-red-500 text-white py-3 text-xs font-black uppercase tracking-widest hover:bg-red-600 transition-colors min-h-[44px]">
                 {t("models.confirm")}
               </button>
               <button onClick={() => setConfirm(false)}
-                className="px-3 py-2 border border-black/10 text-[9px] font-black uppercase tracking-widest text-black/40 hover:bg-black/5 transition-colors">
+                className="px-4 py-3 border border-black/10 text-xs font-black uppercase tracking-widest text-black/40 hover:bg-black/5 transition-colors min-h-[44px]">
                 {t("models.cancelDelete")}
               </button>
             </div>
@@ -467,9 +467,10 @@ export default function Models() {
     setLocation("/dashboard/models");
   }, [addModelDirect, updateCredits, setLocation]);
 
-  const handleStatusUpdate = useCallback((id: string, status: string, soulId?: string) => {
+  const handleStatusUpdate = useCallback((id: string, status: string, soulId?: string, credits?: number) => {
     updateModel(id, { status: status as "training" | "ready" | "failed", soulId: soulId ?? null });
-  }, [updateModel]);
+    if (typeof credits === "number") updateCredits(credits);
+  }, [updateModel, updateCredits]);
 
   const readyCount = state.models.filter(m => m.status === "ready").length;
   const subtitle = state.models.length === 1
@@ -492,7 +493,7 @@ export default function Models() {
         <div className="flex gap-1">
           {(["all", "ready", "training"] as const).map((f) => (
             <button key={f} onClick={() => setFilter(f)}
-              className={`px-4 py-2 text-[9px] font-black uppercase tracking-widest transition-colors ${
+              className={`px-4 min-h-[44px] text-xs font-black uppercase tracking-widest transition-colors ${
                 filter === f ? "bg-black text-white" : "bg-white border border-black/10 text-black/40 hover:text-black"
               }`}>
               {f === "all" ? t("models.filterAll") : f === "ready" ? t("models.filterReady") : t("models.filterTraining")}
@@ -503,7 +504,7 @@ export default function Models() {
           ))}
         </div>
         <button onClick={() => setShowModal(true)}
-          className="bg-[#C0001A] text-white px-5 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors">
+          className="bg-[#C0001A] text-white px-5 min-h-[44px] text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors">
           {t("models.newModel")}
         </button>
       </div>
@@ -515,7 +516,7 @@ export default function Models() {
           <p className="text-lg font-black uppercase tracking-tighter text-black/30">{t("models.empty")}</p>
           <p className="text-sm text-black/25 font-medium mt-2 max-w-sm">{t("models.emptyDesc")}</p>
           <button onClick={() => setShowModal(true)}
-            className="mt-8 bg-[#C0001A] text-white px-8 py-4 text-[10px] font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors">
+            className="mt-8 bg-[#C0001A] text-white px-8 py-4 text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors">
             {t("models.emptyCta")}
           </button>
         </motion.div>
