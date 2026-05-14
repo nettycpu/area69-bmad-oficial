@@ -17,7 +17,7 @@ export default function FeaturesSection() {
     },
     {
       title: "Vídeos Ultra-Realistas",
-      desc: "Gere não apenas fotos, mas vídeos cinemáticos de alta qualidade com o seu avatar — sem censura e sem limitações criativas.",
+      desc: "Gere não apenas fotos, mas vídeos cinemáticos de alta qualidade com o seu avatar, com liberdade criativa e sem marca d'agua.",
       icon: "03",
       rotate: "rotate-3"
     },

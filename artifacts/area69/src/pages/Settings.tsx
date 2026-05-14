@@ -16,22 +16,39 @@ const PLANS = [
     features: ["Sem créditos inclusos", "1 modelo de avatar", "Histórico de 7 dias", "Resolução até 720p"],
   },
   {
-    id: "creator",
+    id: "pro",
     nameKey: null,
-    name: "Creator",
+    name: "Pro",
     price: "R$ 197",
     period: "/mês",
-    credits: 300,
-    features: ["300 créditos/mês", "5 modelos de avatar", "Histórico de 30 dias", "Resolução até 1080p", "Gerar Vídeo", "Suporte prioritário"],
+    credits: 0,
+    features: [
+      "1 modelo de avatar / Soul ID",
+      "100 imagens por mês",
+      "10 vídeos por mês",
+      "Qualidade Alta",
+      "Histórico de 7 dias",
+      "Suporte via WhatsApp",
+      "Créditos mensais não acumulativos",
+    ],
   },
   {
-    id: "studio",
+    id: "business",
     nameKey: null,
-    name: "Studio",
-    price: "R$ 497",
+    name: "Business",
+    price: "R$ 797",
     period: "/mês",
-    credits: 1000,
-    features: ["1.000 créditos/mês", "Modelos ilimitados", "Histórico ilimitado", "Resolução até 4K", "Gerar Vídeo + Áudio", "API Access", "Gerente de conta"],
+    credits: 0,
+    features: [
+      "3 modelos de avatar / Soul ID",
+      "500 imagens por mês",
+      "50 vídeos por mês",
+      "Qualidade Máxima",
+      "Histórico de 30 dias",
+      "Prioridade na fila",
+      "Suporte via WhatsApp",
+      "Créditos mensais não acumulativos",
+    ],
   },
 ];
 
@@ -274,7 +291,7 @@ export default function Settings() {
             {PLANS.map((plan) => (
               <div key={plan.id}
                 className={`border-2 p-4 transition-colors ${plan.id === currentPlan ? "border-[#C0001A] bg-[#C0001A]/5" : "border-black/8 bg-white"}`}>
-                {plan.id === "studio" && (
+                {plan.id === "business" && (
                   <div className="text-[11px] font-black uppercase tracking-widest text-white bg-[#C0001A] px-2 py-0.5 inline-block mb-2">
                     {t("settings.popular")}
                   </div>
@@ -295,7 +312,7 @@ export default function Settings() {
                 </ul>
                 {plan.id !== currentPlan && (
                   <button className={`w-full mt-4 py-3 text-xs font-black uppercase tracking-widest transition-colors ${
-                    plan.id === "studio" ? "bg-[#C0001A] text-white hover:bg-[#a00015]" : "border border-black/15 text-black/40 hover:border-black/30 hover:text-black"
+                    plan.id === "business" ? "bg-[#C0001A] text-white hover:bg-[#a00015]" : "border border-black/15 text-black/40 hover:border-black/30 hover:text-black"
                   }`}>
                     {plan.id === "free" ? t("settings.currentPlanLabel") : t("settings.subscribe")}
                   </button>

@@ -5,29 +5,35 @@ import { Link } from "wouter";
 export default function PricingSection() {
   const plans = [
     {
-      name: "Creator",
+      name: "Pro",
       price: "R$ 197",
       period: "/mês",
-      desc: "Ideal para influenciadores começando a automatizar seu conteúdo.",
+      desc: "Para criadores que querem uma rotina mensal consistente.",
       features: [
-        "1 Modelo de Avatar",
-        "100 Imagens por mês",
-        "Qualidade Alta (2K)",
-        "Histórico de 7 dias"
+        "1 modelo de avatar / Soul ID",
+        "100 imagens por mês",
+        "10 vídeos por mês",
+        "Qualidade Alta",
+        "Histórico de 7 dias",
+        "Suporte via WhatsApp",
+        "Créditos mensais não acumulativos"
       ],
       popular: false
     },
     {
-      name: "Studio",
-      price: "R$ 497",
+      name: "Business",
+      price: "R$ 797",
       period: "/mês",
-      desc: "Para agências e creators que precisam de volume e vídeo.",
+      desc: "Para equipes e operações que precisam de mais volume mensal.",
       features: [
-        "3 Modelos de Avatar",
-        "500 Imagens por mês",
-        "50 Vídeos sem Censura",
-        "Qualidade Máxima (4K)",
-        "Histórico de 30 dias"
+        "3 modelos de avatar / Soul ID",
+        "500 imagens por mês",
+        "50 vídeos por mês",
+        "Qualidade Máxima",
+        "Histórico de 30 dias",
+        "Prioridade na fila",
+        "Suporte via WhatsApp",
+        "Créditos mensais não acumulativos"
       ],
       popular: true
     }
