@@ -15,7 +15,7 @@ export default function FloatingSupport() {
       ),
       label: "WhatsApp",
       sub: t("support.whatsappSub"),
-      href: "https://wa.me/5500000000000",
+      href: "https://chat.whatsapp.com/IfsgOZCrkt57PkDT4HOhAs",
       color: "bg-[#25D366] hover:bg-[#1ebe5d]",
     },
     {
