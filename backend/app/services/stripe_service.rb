@@ -59,25 +59,7 @@ class StripeService
     end
 
     purchase = CreditPurchase.find_by(stripe_checkout_session_id: session.id)
-
-    unless purchase
-      # Fallback: tentar criar purchase a partir de metadados (webhook atrasado/recriado)
-      user_id = session.metadata["user_id"]
-      credits = session.metadata["credits"].to_i
-      raise Error, "Pacote de creditos invalido na sessao: #{credits}" unless VALID_CREDIT_PACKS.include?(credits)
-      raise Error, "Metadados invalidos — user_id ou credits ausentes" unless user_id.present? && credits > 0
-      raise Error, "Compra ja processada (nao encontrada por session_id mas pode ser duplicata)" if CreditPurchase.exists?(stripe_checkout_session_id: session.id)
-
-      user = User.find(user_id)
-      purchase = CreditPurchase.create!(
-        user: user,
-        stripe_checkout_session_id: session.id,
-        stripe_payment_intent_id: session.payment_intent,
-        credits: credits,
-        status: "pending",
-        metadata: { amount_total: session.amount_total, currency: session.currency, recovered: true }
-      )
-    end
+    raise Error, "Compra nao encontrada para sessao: #{session.id}" unless purchase
 
     # Idempotencia: se ja pago, nao somar de novo
     if purchase.status == "paid"
