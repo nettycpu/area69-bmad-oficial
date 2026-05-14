@@ -53,6 +53,20 @@ export default function History() {
   return (
     <DashboardLayout title={t("history.title")} subtitle={t("history.subtitle")}>
 
+      <div className="mb-6 border border-[#C0001A]/20 bg-[#C0001A]/5 p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center bg-[#C0001A] text-white">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-widest text-[#C0001A]">{t("history.retentionTitle")}</p>
+            <p className="mt-1 max-w-3xl text-xs font-medium leading-relaxed text-black/55">{t("history.retentionDesc")}</p>
+          </div>
+        </div>
+      </div>
+
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <div className="flex gap-1">
           {(["all", "image", "video"] as Filter[]).map((f) => (
