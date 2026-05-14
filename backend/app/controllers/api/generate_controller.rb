@@ -15,6 +15,8 @@ module Api
 
     ASPECT_RATIOS = %w[21:9 16:9 4:3 1:1 3:4 9:16].freeze
     RESOLUTIONS   = %w[480p 720p 1080p].freeze
+    IMAGE_RESOLUTIONS = Pricing::QWEN_IMAGE_BY_RESOLUTION.keys.freeze
+    LOCKED_IMAGE_RESOLUTIONS = Pricing::QWEN_IMAGE_LOCKED_RESOLUTIONS.freeze
     HIGGSFIELD_ASPECT_RATIOS = %w[1:1 3:4 4:5 9:16 16:9].freeze
     HIGGSFIELD_RESOLUTIONS = %w[720p 1080p].freeze
     MAX_PROMPT_LENGTH = 800
@@ -60,10 +62,12 @@ module Api
       return render_error("Prompt deve ter no maximo #{MAX_PROMPT_LENGTH} caracteres") if prompt.length > MAX_PROMPT_LENGTH
       return render_error("Imagem de referencia e obrigatoria") if images.empty?
       return render_error("Proporcao invalida") unless ASPECT_RATIOS.include?(aspect)
-      return render_error("Resolucao invalida") unless RESOLUTIONS.include?(res)
+      return render_error("Resolucao invalida") unless IMAGE_RESOLUTIONS.include?(res)
+      return render_error("Resolucao 480p esta bloqueada no momento") if LOCKED_IMAGE_RESOLUTIONS.include?(res)
       validate_seed!(seed)
       UploadValidator.validate_reference_inputs(images, max: 6)
       size = SIZE_MAP.fetch([aspect, res])
+      cost_credits = Pricing::QWEN_IMAGE_BY_RESOLUTION.fetch(res)
 
       job = nil
       ActiveRecord::Base.transaction do
@@ -72,7 +76,7 @@ module Api
           provider_model: QWEN_MODEL,
           generation_type: "image",
           status: "queued",
-          cost_credits: Pricing::QWEN_IMAGE,
+          cost_credits: cost_credits,
           prompt: prompt,
           input_urls: images,
           aspect_ratio: aspect.presence,
@@ -83,7 +87,7 @@ module Api
 
         CreditLedger.spend!(
           user: current_user,
-          amount: Pricing::QWEN_IMAGE,
+          amount: cost_credits,
           source: "qwen_image",
           idempotency_key: "generation_job:#{job.id}:charge",
           reference: job

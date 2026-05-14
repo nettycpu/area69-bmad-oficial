@@ -30,7 +30,12 @@ function aspectStyle(ratio: string) {
 
 const MAX_REF_FILE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_REF_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const COST_PER_IMAGE = 5;
+const DEFAULT_IMAGE_COST_BY_RESOLUTION: Record<string, number> = {
+  "480p": 1,
+  "720p": 5,
+  "1080p": 15,
+};
+const DEFAULT_LOCKED_RESOLUTIONS = ["480p"];
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_ATTEMPTS = 60;
 const MAX_CONSECUTIVE_ERRORS = 5;
@@ -53,14 +58,22 @@ export default function GenerateImage() {
   const [genError, setGenError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const consecutiveErrorsRef = useRef(0);
-  const [imageCost, setImageCost] = useState(COST_PER_IMAGE);
+  const [imageCostByResolution, setImageCostByResolution] = useState(DEFAULT_IMAGE_COST_BY_RESOLUTION);
+  const [lockedResolutions, setLockedResolutions] = useState<string[]>(DEFAULT_LOCKED_RESOLUTIONS);
 
-  const canGenerate = prompt.trim().length >= 3 && referenceImage && !generating;
-  const totalCost = imageCost;
+  const resolutionLocked = lockedResolutions.includes(resolution);
+  const canGenerate = prompt.trim().length >= 3 && referenceImage && !generating && !resolutionLocked;
+  const totalCost = imageCostByResolution[resolution] ?? DEFAULT_IMAGE_COST_BY_RESOLUTION[resolution] ?? 5;
 
   useEffect(() => {
     api.pricing()
-      .then((pricing) => setImageCost(pricing.qwen_image))
+      .then((pricing) => {
+        setImageCostByResolution({
+          ...DEFAULT_IMAGE_COST_BY_RESOLUTION,
+          ...(pricing.qwen_image_by_resolution ?? {}),
+        });
+        setLockedResolutions(pricing.qwen_image_locked_resolutions ?? DEFAULT_LOCKED_RESOLUTIONS);
+      })
       .catch(() => {});
   }, []);
 
@@ -309,13 +322,39 @@ export default function GenerateImage() {
           <div className="bg-white border border-black/8 p-5">
             <p className="text-xs font-black uppercase tracking-widest text-black/40 mb-3">{t("generateImage.resolution")}</p>
             <div className="flex gap-2">
-              {RESOLUTIONS.map((r) => (
-                <button key={r.value} onClick={() => setResolution(r.value)}
-                  className={`flex-1 min-h-[52px] flex flex-col items-center justify-center border-2 transition-colors ${resolution === r.value ? "border-[#C0001A] bg-[#C0001A] text-white" : "border-black/8 text-black/40 hover:border-black/20 hover:text-black"}`}>
-                  <span className="text-xs font-black leading-none">{r.label}</span>
-                  <span className={`text-[10px] font-medium mt-0.5 ${resolution === r.value ? "text-white/60" : "text-black/25"}`}>{r.sub}</span>
-                </button>
-              ))}
+              {RESOLUTIONS.map((r) => {
+                const locked = lockedResolutions.includes(r.value);
+                const cost = imageCostByResolution[r.value] ?? DEFAULT_IMAGE_COST_BY_RESOLUTION[r.value] ?? 5;
+
+                return (
+                  <button
+                    key={r.value}
+                    onClick={() => {
+                      if (!locked) setResolution(r.value);
+                    }}
+                    disabled={locked}
+                    title={locked ? "Resolucao bloqueada no momento" : `${cost} creditos`}
+                    className={`flex-1 min-h-[62px] flex flex-col items-center justify-center border-2 transition-colors relative ${
+                      locked
+                        ? "border-black/5 bg-black/5 text-black/20 cursor-not-allowed"
+                        : resolution === r.value
+                        ? "border-[#C0001A] bg-[#C0001A] text-white"
+                        : "border-black/8 text-black/40 hover:border-black/20 hover:text-black"
+                    }`}
+                  >
+                    {locked && (
+                      <span className="absolute top-1.5 right-1.5 text-[9px] font-black uppercase tracking-widest text-black/25">
+                        Lock
+                      </span>
+                    )}
+                    <span className="text-xs font-black leading-none">{r.label}</span>
+                    <span className={`text-[10px] font-medium mt-0.5 ${resolution === r.value && !locked ? "text-white/60" : "text-black/25"}`}>{r.sub}</span>
+                    <span className={`text-[10px] font-black mt-1 ${resolution === r.value && !locked ? "text-white" : locked ? "text-black/25" : "text-[#C0001A]"}`}>
+                      {cost} {cost === 1 ? "credito" : "creditos"}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

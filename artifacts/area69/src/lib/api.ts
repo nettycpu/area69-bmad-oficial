@@ -226,6 +226,8 @@ export const api = {
   pricing: () =>
     request<{
       qwen_image: number;
+      qwen_image_by_resolution: Record<string, number>;
+      qwen_image_locked_resolutions: string[];
       seedance_video: number;
       higgsfield_character: number;
       higgsfield_training: number;
