@@ -3,6 +3,8 @@ module Api
     VALID_TYPES = %w[image video].freeze
 
     def index
+      GenerationJobReconciler.new(current_user).call
+
       generations = current_user.generations
                                  .order(created_at: :desc)
                                  .limit(200)

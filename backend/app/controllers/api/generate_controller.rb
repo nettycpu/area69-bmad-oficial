@@ -496,40 +496,11 @@ module Api
     # ─────────────────────────── Payload normalization ──────────────────────
 
     def normalize_wavespeed_payload(body)
-      data = body.is_a?(Hash) ? (body["data"] || body) : body
-      data = {} unless data.is_a?(Hash)
-
-      provider_id = data["id"] || body["id"]
-      raw_status  = (data["status"] || body["status"] || "processing").to_s.downcase
-      raw_error   = data["error"] || body["error"] || data["message"] || body["message"]
-
-      outputs = extract_outputs(data)
-
-      status = if raw_status == "completed" && outputs.any?
-                 "completed"
-               elsif %w[failed error].include?(raw_status) || raw_error.to_s.present?
-                 "failed"
-               elsif %w[queued created processing running submitted].include?(raw_status)
-                 "processing"
-               else
-                 "processing"
-               end
-
-      { provider_id: provider_id, status: status, outputs: outputs, error: raw_error }
+      WavespeedPayload.normalize(body)
     end
 
     def extract_outputs(data)
-      outputs = []
-      if data["outputs"].is_a?(Array)
-        outputs = data["outputs"].map { |o| o.is_a?(Hash) ? o["url"] : o }.compact
-      elsif data["images"].is_a?(Array)
-        outputs = data["images"].map { |img| img.is_a?(Hash) ? img["url"] : img }.compact
-      elsif data["result_images"].is_a?(Array)
-        outputs = data["result_images"].map { |img| img.is_a?(Hash) ? img["url"] : img }.compact
-      elsif data.dig("result", "outputs").is_a?(Array)
-        outputs = data["result"]["outputs"].map { |o| o.is_a?(Hash) ? o["url"] : o }.compact
-      end
-      outputs
+      WavespeedPayload.extract_outputs(data)
     end
 
     # ─────────────────────────── Job resolution ─────────────────────────────
@@ -552,103 +523,11 @@ module Api
     # ─────────────────────────── Completion & failure ───────────────────────
 
     def complete_job!(job, outputs:)
-      # Phase 1: mark job completed atomically (always persists even if history fails)
-      job.with_lock do
-        if job.status == "failed" || job.refunded_at.present?
-          return { status: job.status, outputs: job.output_urls, credits: current_user.reload.credits }
-        end
-
-        if job.status == "completed" && job.output_urls.any? && (job.metadata || {})["generation_created"]
-          return { status: "completed", outputs: job.output_urls, credits: current_user.reload.credits }
-        end
-
-        job.update!(
-          status: "completed",
-          output_urls: outputs,
-          completed_at: Time.current
-        )
-      end
-
-      # Only the first caller reaches past the lock. Others hit the early return.
-      metadata = job.reload.metadata || {}
-
-      # Phase 2: history — never break the UI if this fails
-      unless metadata["generation_created"]
-        begin
-          outputs.each do |url|
-            current_user.generations.find_or_create_by!(
-              generation_job_id: job.id, url: url
-            ) do |gen|
-              gen.model_label = job.avatar_model&.name || job.provider_model
-              gen.generation_type = job.generation_type
-              gen.prompt = job.prompt
-              gen.thumbnail_url = job.thumbnail_url
-              gen.provider = job.provider
-              gen.provider_model = job.provider_model
-              gen.aspect_ratio = job.aspect_ratio
-              gen.resolution = job.resolution
-              gen.duration = job.duration
-            end
-          end
-          metadata["generation_created"] = true
-        rescue => e
-          Rails.logger.error("[GenerateStatus] generation_history_error job=#{job.id} #{e.class}: #{e.message}")
-          metadata["history_error"] = "#{e.class}: #{e.message[0..200]}"
-        end
-      end
-
-      # Phase 3: user counters — idempotent via metadata flag
-      unless metadata["counters_updated"]
-        begin
-          column = job.generation_type == "image" ? :images_generated : :videos_generated
-          current_user.increment!(column, outputs.size)
-          metadata["counters_updated"] = true
-        rescue => e
-          Rails.logger.error("[GenerateStatus] counters_error job=#{job.id} #{e.class}: #{e.message}")
-        end
-      end
-
-      # Phase 4: avatar model counter — only for image generations
-      if job.avatar_model.present? && job.generation_type == "image" && !metadata["avatar_model_counter_updated"]
-        begin
-          job.avatar_model.increment!(:images_generated, outputs.size)
-          metadata["avatar_model_counter_updated"] = true
-        rescue => e
-          Rails.logger.error("[GenerateStatus] avatar_counter_error job=#{job.id} #{e.class}: #{e.message}")
-        end
-      end
-
-      # Phase 5: persist metadata
-      job.update!(metadata: metadata)
-
-      gen_count = metadata["generation_created"] ? outputs.size : 0
-      Rails.logger.info("[GenerateStatus] completed job=#{job.id} generations=#{gen_count}")
-
-      { status: "completed", outputs: job.output_urls, credits: current_user.reload.credits }
+      GenerationJobFinalizer.complete!(job, outputs: outputs)
     end
 
     def fail_job!(job, error_message)
-      job.with_lock do
-        if job.status == "completed"
-          return { status: "completed", outputs: job.output_urls, credits: current_user.reload.credits }
-        end
-
-        job.update!(status: "failed", error_message: error_message)
-
-        unless job.refunded_at
-          CreditLedger.refund!(
-            user: current_user,
-            amount: job.cost_credits,
-            source: job.source_for_refund,
-            idempotency_key: "generation_job:#{job.id}:refund",
-            reference: job,
-            metadata: { error: error_message }
-          )
-          job.update!(refunded_at: Time.current)
-        end
-      end
-
-      { status: "failed", error: error_message, outputs: job.output_urls, credits: current_user.reload.credits }
+      GenerationJobFinalizer.fail!(job, error_message)
     end
 
     def refund_job(job)
@@ -677,7 +556,7 @@ module Api
       job.output_urls.each do |url|
         current_user.generations.find_or_create_by!(generation_job_id: job.id, url: url) do |gen|
           gen.generation_type = job.generation_type
-          gen.model_label = job.avatar_model&.name || job.provider_model.presence || "unknown"
+          gen.model_label = display_model_label(job)
           gen.prompt = job.prompt.presence || "Generated media"
           gen.provider = job.provider
           gen.provider_model = job.provider_model
@@ -699,6 +578,19 @@ module Api
       m = job.metadata || {}
       m["history_error"] = "#{e.class}: #{e.message}".truncate(240)
       job.update!(metadata: m)
+    end
+
+    def display_model_label(job)
+      return job.avatar_model.name if job.avatar_model&.name.present?
+
+      case job.provider
+      when "wavespeed"
+        job.generation_type == "video" ? "AREA69 Motion Studio" : "AREA69 Image Studio"
+      when "higgsfield"
+        "AREA69 Character Studio"
+      else
+        "AREA69 Studio"
+      end
     end
 
     def mark_processing!(job)
