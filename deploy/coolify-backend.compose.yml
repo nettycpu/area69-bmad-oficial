@@ -1,0 +1,39 @@
+services:
+  backend:
+    image: ghcr.io/nettycpu/area69-backend:latest
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      PORT: "3000"
+      RAILS_ENV: production
+      RACK_ENV: production
+      RAILS_LOG_LEVEL: ${RAILS_LOG_LEVEL:-info}
+      RAILS_MAX_THREADS: ${RAILS_MAX_THREADS:-5}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?SECRET_KEY_BASE is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL is required}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?ALLOWED_ORIGINS is required}
+      STRIPE_API_KEY: ${STRIPE_API_KEY:?STRIPE_API_KEY is required}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?STRIPE_WEBHOOK_SECRET is required}
+      STRIPE_PRICE_50_CREDITS: ${STRIPE_PRICE_50_CREDITS:?STRIPE_PRICE_50_CREDITS is required}
+      STRIPE_PRICE_150_CREDITS: ${STRIPE_PRICE_150_CREDITS:?STRIPE_PRICE_150_CREDITS is required}
+      STRIPE_PRICE_300_CREDITS: ${STRIPE_PRICE_300_CREDITS:?STRIPE_PRICE_300_CREDITS is required}
+      STRIPE_PRICE_600_CREDITS: ${STRIPE_PRICE_600_CREDITS:?STRIPE_PRICE_600_CREDITS is required}
+      HIGGSFIELD_API_KEY: ${HIGGSFIELD_API_KEY:?HIGGSFIELD_API_KEY is required}
+      HIGGSFIELD_API_SECRET: ${HIGGSFIELD_API_SECRET:?HIGGSFIELD_API_SECRET is required}
+      WAVESPEED_API_KEY: ${WAVESPEED_API_KEY:?WAVESPEED_API_KEY is required}
+      CREDITS_SECRET: ${CREDITS_SECRET:?CREDITS_SECRET is required}
+      INTERNAL_SECRET: ${INTERNAL_SECRET:?INTERNAL_SECRET is required}
+      R2_PUBLIC_URL_HOST: ${R2_PUBLIC_URL_HOST:?R2_PUBLIC_URL_HOST is required}
+      R2_BUCKET: ${R2_BUCKET:?R2_BUCKET is required}
+      R2_ENDPOINT: ${R2_ENDPOINT:?R2_ENDPOINT is required}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?R2_ACCESS_KEY_ID is required}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY is required}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:$${PORT:-3000}/up || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

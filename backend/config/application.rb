@@ -3,7 +3,9 @@ require_relative "boot"
 require "rails"
 require "active_model/railtie"
 require "active_record/railtie"
+require "active_job/railtie"
 require "action_controller/railtie"
+require "action_mailer/railtie"
 require "rails/test_unit/railtie"
 
 Bundler.require(*Rails.groups)
@@ -13,10 +15,13 @@ module Area69
     config.load_defaults 8.1
     config.api_only = true
 
-    # Use SESSION_SECRET as stable secret key base if dedicated key not set
-    config.secret_key_base = ENV["SECRET_KEY_BASE"] ||
-                              ENV["SESSION_SECRET"] ||
-                              SecureRandom.hex(64)
+    config.secret_key_base = if Rails.env.production?
+                               ENV.fetch("SECRET_KEY_BASE")
+                             else
+                               ENV["SECRET_KEY_BASE"] ||
+                                 ENV["SESSION_SECRET"] ||
+                                 SecureRandom.hex(64)
+                             end
 
     # JWT middleware must run before Rack::Attack so throttling can use req.env["jwt.user_id"]
     require_relative "../app/middleware/jwt_auth_middleware"

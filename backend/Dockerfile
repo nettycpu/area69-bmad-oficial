@@ -1,12 +1,12 @@
 # Development Dockerfile — Rails 8.1, PostgreSQL, hot-reload via volume mount
 # Usage: docker compose up --build
 
-ARG RUBY_VERSION=3.2.3
+ARG RUBY_VERSION=3.4.9
 FROM docker.io/library/ruby:$RUBY_VERSION-slim
 
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
-      build-essential libpq-dev curl libjemalloc2 libvips && \
+      build-essential git libpq-dev libyaml-dev pkg-config curl libjemalloc2 libvips && \
     rm -rf /var/lib/apt/lists/*
 
 ENV RAILS_ENV=development \

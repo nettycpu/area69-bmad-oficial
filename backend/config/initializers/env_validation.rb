@@ -2,11 +2,17 @@
 
 if Rails.env.production?
   required_vars = %w[
+    SECRET_KEY_BASE
     JWT_SECRET
     DATABASE_URL
     FRONTEND_BASE_URL
+    ALLOWED_ORIGINS
     STRIPE_API_KEY
     STRIPE_WEBHOOK_SECRET
+    STRIPE_PRICE_50_CREDITS
+    STRIPE_PRICE_150_CREDITS
+    STRIPE_PRICE_300_CREDITS
+    STRIPE_PRICE_600_CREDITS
     HIGGSFIELD_API_KEY
     HIGGSFIELD_API_SECRET
     WAVESPEED_API_KEY
@@ -22,7 +28,6 @@ if Rails.env.production?
   missing = required_vars.select { |var| ENV[var].blank? }
 
   if missing.any?
-    Rails.logger.error("[ENV] VARIAVEIS DE AMBIENTE OBRIGATORIAS AUSENTES: #{missing.join(', ')}")
-    Rails.logger.error("[ENV] A aplicacao pode falhar em production sem estas variaveis.")
+    raise "[ENV] Variaveis de ambiente obrigatorias ausentes em production: #{missing.join(', ')}"
   end
 end

@@ -2,108 +2,110 @@
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+pnpm workspace monorepo using TypeScript.
 
-## AREA 69 — AI Models Studio
+## AREA 69 - AI Models Studio
 
-React + Vite frontend at `artifacts/area69` + Ruby on Rails 8.1 API backend at `backend/`.
-Brazilian Portuguese UI with i18n (pt-BR / en / es). Strict red (#C0001A) and white palette.
-Frontend stack: Tailwind CSS v4, framer-motion, wouter, shadcn/ui.
+React + Vite frontend at `artifacts/area69` plus Ruby on Rails 8.1 API backend at `backend/`.
+Brazilian Portuguese UI with i18n (`pt-BR`, `en`, `es`).
 
 ### Architecture
 
-- **Frontend** (`artifacts/area69`): React + Vite SPA. All state loaded from API on login. JWT token stored in `sessionStorage`. Mutations are optimistic (update local state, sync to API in background).
-- **Backend** (`backend/`): Ruby on Rails 8.1 API-only app. PostgreSQL via `DATABASE_URL` env var. JWT auth via `jwt` gem. Password hashing via `bcrypt`.
-- **API layer** (`artifacts/area69/src/lib/api.ts`): Typed fetch helpers for all endpoints at `/api/...`.
-- **State** (`artifacts/area69/src/lib/StoreContext.tsx`): Fetches all user data from API on mount. Mutations call API in background with optimistic UI.
-- **Dev proxy**: Vite proxies `/api/*` → `http://localhost:8080` in development.
+- **Frontend** (`artifacts/area69`): React + Vite SPA. JWT token is stored in `sessionStorage`.
+- **Backend** (`backend`): Rails API-only app. PostgreSQL via `DATABASE_URL`. JWT auth via `jwt`. Password hashing via `bcrypt`.
+- **API layer** (`artifacts/area69/src/lib/api.ts`): fetch helpers use `VITE_API_BASE_URL` or `/api` by default.
+- **Dev proxy**: Vite proxies `/api/*` to `http://127.0.0.1:3000`.
+- **Payments**: Stripe Checkout with webhook fulfillment and idempotent credit ledger.
+- **Media storage**: Cloudflare R2-compatible S3 API.
+- **AI providers**: Wavespeed and Higgsfield integrations.
 
-### Backend — Ruby on Rails 8.1
+### Backend
 
-Location: `backend/` (workspace root)
+Location: `backend/`
 
-**Gems**: rails 8.1, pg, bcrypt, jwt, rack-cors
+Production Dockerfile:
 
-**Models**:
-- `User` — has_secure_password, credits default 100, name, email (unique), avatar. Password min 8 chars enforced at model level.
-- `AvatarModel` — belongs_to user, name, style, cover (text/base64), status (training/ready/failed), description, images_generated, videos_generated
-- `Generation` — belongs_to user, model_name, generation_type (image/video), prompt, url, seed, width, height
-
-**Routes** (all under `/api`):
+```text
+backend/Dockerfile.production
 ```
+
+Important routes:
+
+```text
 POST   /api/auth/register
 POST   /api/auth/login
 GET    /api/user/me
-PATCH  /api/user/me
-POST   /api/user/me/password
-GET    /api/avatar_models
-POST   /api/avatar_models
-PATCH  /api/avatar_models/:id
-DELETE /api/avatar_models/:id
-GET    /api/generations
-POST   /api/generations
-DELETE /api/generations/:id
 GET    /api/credits
-POST   /api/credits/add        ← requires X-Credits-Secret header in production
-POST   /api/credits/spend
-GET    /api/healthz
+GET    /api/pricing
+POST   /api/checkout/stripe
+POST   /api/checkout/stripe/confirm
+POST   /api/webhooks/stripe
+POST   /api/generate/image
+POST   /api/generate/video
+POST   /api/generate/character
+GET    /up
 ```
 
-### Required Environment Variables
+### Required Production Environment Variables
 
-| Variable | Required in Production | Description |
-|---|---|---|
-| `DATABASE_URL` | ✅ YES | PostgreSQL connection string |
-| `JWT_SECRET` | ✅ YES | Stable secret for signing JWT tokens. Without it tokens are invalidated on every restart |
-| `SECRET_KEY_BASE` | ✅ YES | Rails secret key base. Generate with `rails secret` |
-| `ALLOWED_ORIGINS` | ✅ YES | Comma-separated allowed CORS origins (e.g. `https://myapp.replit.app`) |
-| `CREDITS_SECRET` | ✅ YES | Secret header value required for `POST /credits/add`. Prevents users from self-issuing credits. Set same value in frontend env as `VITE_CREDITS_SECRET` |
-| `RAILS_LOG_LEVEL` | optional | Defaults to `info` |
-| `RAILS_MAX_THREADS` | optional | DB connection pool size, defaults to 5 |
+| Variable | Description |
+|---|---|
+| `SECRET_KEY_BASE` | Rails secret key base |
+| `JWT_SECRET` | JWT signing secret, different from `SECRET_KEY_BASE` |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `FRONTEND_BASE_URL` | Public frontend URL used for checkout redirects |
+| `ALLOWED_ORIGINS` | Comma-separated CORS origins |
+| `STRIPE_API_KEY` | Stripe API key |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
+| `STRIPE_PRICE_50_CREDITS` | Stripe Price ID for 50 credits |
+| `STRIPE_PRICE_150_CREDITS` | Stripe Price ID for 150 credits |
+| `STRIPE_PRICE_300_CREDITS` | Stripe Price ID for 300 credits |
+| `STRIPE_PRICE_600_CREDITS` | Stripe Price ID for 600 credits |
+| `HIGGSFIELD_API_KEY` | Higgsfield API key |
+| `HIGGSFIELD_API_SECRET` | Higgsfield API secret |
+| `WAVESPEED_API_KEY` | Wavespeed API key |
+| `CREDITS_SECRET` | Secret for admin credit endpoints |
+| `INTERNAL_SECRET` | Secret for internal generation history endpoint |
+| `R2_PUBLIC_URL_HOST` | Public R2 custom domain |
+| `R2_BUCKET` | R2 bucket |
+| `R2_ENDPOINT` | R2 S3 endpoint |
+| `R2_ACCESS_KEY_ID` | R2 access key |
+| `R2_SECRET_ACCESS_KEY` | R2 secret key |
 
-**Generating secrets:**
+Generate secrets:
+
 ```bash
-cd backend && bundle exec rails secret   # for JWT_SECRET and SECRET_KEY_BASE
+cd backend
+bundle exec rails secret
+bundle exec rails secret
 ```
 
 ### Security Notes
 
-- JWT tokens expire in 30 days
-- All state requests require `Authorization: Bearer <token>` header
-- CORS: `*` in development, restricted via `ALLOWED_ORIGINS` env var in production
-- `force_ssl = true` enabled in production — HTTP redirects to HTTPS
-- Passwords stored as bcrypt hashes, minimum 8 characters enforced at model + frontend level
-- `credits/spend` uses atomic SQL `UPDATE WHERE credits >= ?` to prevent race conditions
-- `credits/add` requires `X-Credits-Secret` header when `CREDITS_SECRET` env var is set
+- JWT tokens expire in 30 days.
+- CORS is restricted by `ALLOWED_ORIGINS` in production.
+- `force_ssl = true` is enabled in production; `/up` is excluded for container healthchecks.
+- Credit accounting is ledger-backed and idempotent.
+- Stripe fulfillment requires an existing local `CreditPurchase` before credits are granted.
+- Production boot fails fast if required env vars are missing.
+- `brakeman` and `bundler-audit` are included for backend security checks.
 
-### Known Production Limitations (by design — require AI integration)
+### Deployment Assets
 
-- **Image/video generation is mocked**: Returns static demo assets (`/images/showcase-*.png`, `/videos/demo*.mp4`). Real production requires integration with an AI image/video API (e.g. Replicate, Fal.ai). Generation URLs saved to DB will point to static dev assets.
-- **Model training is simulated**: Progress animation is frontend-only. Backend creates the model as `status: "training"` and the frontend simulation + `PATCH /avatar_models/:id` updates it to `ready`. Real production requires a training job queue (Sidekiq + AI provider).
-- **PIX payment is simulated**: QR code has valid CRC16/CCITT format but no real payment processor. A real integration requires Mercado Pago, Pagar.me, or similar, plus a webhook endpoint to call `credits/add` with the `CREDITS_SECRET`.
+- Backend production image workflow: `.github/workflows/publish-backend-image.yml`
+- CI workflow: `.github/workflows/ci.yml`
+- Coolify backend compose: `deploy/coolify-backend.compose.yml`
+- Backend staging env template: `backend/staging.env.example`
+- Frontend staging env template: `artifacts/area69/.env.staging.example`
+- Staging guide: `docs/staging-deploy.md`
 
-### Workflows
+### Key Commands
 
-- **API Server**: `cd /home/runner/workspace/backend && PORT=8080 bundle exec rails server -b 0.0.0.0` (port 8080)
-- **Start application**: `PORT=19902 BASE_PATH=/ pnpm --filter @workspace/area69 run dev` (port 19902)
-
-### System Dependencies (Nix)
-
-- `libyaml` — required by psych gem (installed via installSystemDependencies)
-
-## Stack
-
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Ruby on Rails 8.1 (API-only)
-- **Database**: PostgreSQL (via DATABASE_URL)
-- **Build**: Vite (frontend)
-
-## Key Commands
-
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm --filter @workspace/area69 exec tsc --noEmit` — typecheck frontend only
-
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+```bash
+pnpm run typecheck
+pnpm run build
+cd backend && bin/rails test
+cd backend && bin/brakeman -q
+cd backend && bin/bundler-audit check
+docker build -f backend/Dockerfile.production -t area69-backend-prod-check backend
+```
