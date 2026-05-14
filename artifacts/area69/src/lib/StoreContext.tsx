@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { isAuthenticated, clearAllData, type UserState, type Model, type Generation, type UserProfile } from "./store";
 import { api, type ApiModel, type ApiGeneration } from "./api";
+import { LANG_CHANGE_EVENT, LANG_KEY } from "./I18nContext";
+import type { Lang } from "./i18n";
 
 const MAX_GENERATIONS = 200;
 
@@ -8,8 +10,19 @@ const DEFAULT_STATE: UserState = {
   credits: 0,
   models: [],
   generations: [],
-  profile: { name: "", email: "", avatar: null },
+  profile: {
+    name: "",
+    email: "",
+    avatar: null,
+    language: "pt-BR",
+    notifyGenerations: true,
+    notifyPromotions: false,
+  },
 };
+
+function normalizeLang(value: string | undefined): Lang {
+  return value === "en" || value === "es" || value === "pt-BR" ? value : "pt-BR";
+}
 
 function mapModel(raw: ApiModel): Model {
   return {
@@ -51,7 +64,7 @@ interface StoreContextValue {
   deleteGeneration: (id: string) => void;
   /** Fonte central de verdade: atualiza saldo com valor vindo do backend */
   updateCredits: (balance: number) => void;
-  updateProfile: (patch: Partial<UserProfile>) => void;
+  updateProfile: (patch: Partial<UserProfile>) => Promise<void>;
   resetAccount: () => void;
 }
 
@@ -72,11 +85,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       api.credits.balance(),
     ])
       .then(([userRes, modelsRes, gensRes, creditsRes]) => {
+        const language = normalizeLang(userRes.user.language);
+        localStorage.setItem(LANG_KEY, language);
+        window.dispatchEvent(new CustomEvent(LANG_CHANGE_EVENT, { detail: language }));
+
         setState({
           profile: {
             name: userRes.user.name,
             email: userRes.user.email,
             avatar: userRes.user.avatar ?? null,
+            language,
+            notifyGenerations: userRes.user.notify_generations,
+            notifyPromotions: userRes.user.notify_promotions,
           },
           models: modelsRes.models.map(mapModel),
           generations: gensRes.generations.map(mapGeneration),
@@ -177,21 +197,44 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }
 
   // ── Profile mutations ─────────────────────────────────────────────────────────
-  const updateProfile = useCallback((patch: Partial<UserProfile>) => {
-    setState((prev) => ({ ...prev, profile: { ...prev.profile, ...patch } }));
-    api.user
-      .update({ name: patch.name, email: patch.email, avatar: patch.avatar })
-      .then((res) =>
-        setState((prev) => ({
-          ...prev,
-          profile: {
-            name: res.user.name,
-            email: res.user.email,
-            avatar: res.user.avatar ?? null,
-          },
-        })),
-      )
-      .catch(console.error);
+  const updateProfile = useCallback(async (patch: Partial<UserProfile>) => {
+    const apiPatch = {
+      name: patch.name,
+      email: patch.email,
+      avatar: patch.avatar,
+      language: patch.language,
+      notify_generations: patch.notifyGenerations,
+      notify_promotions: patch.notifyPromotions,
+    };
+
+    let previousProfile: UserProfile | null = null;
+    setState((prev) => {
+      previousProfile = prev.profile;
+      return { ...prev, profile: { ...prev.profile, ...patch } };
+    });
+
+    try {
+      const res = await api.user.update(apiPatch);
+      const language = normalizeLang(res.user.language);
+      localStorage.setItem(LANG_KEY, language);
+      window.dispatchEvent(new CustomEvent(LANG_CHANGE_EVENT, { detail: language }));
+      setState((prev) => ({
+        ...prev,
+        profile: {
+          name: res.user.name,
+          email: res.user.email,
+          avatar: res.user.avatar ?? null,
+          language,
+          notifyGenerations: res.user.notify_generations,
+          notifyPromotions: res.user.notify_promotions,
+        },
+      }));
+    } catch (error) {
+      if (previousProfile) {
+        setState((prev) => ({ ...prev, profile: previousProfile! }));
+      }
+      throw error;
+    }
   }, []);
 
   const resetAccount = useCallback(() => {

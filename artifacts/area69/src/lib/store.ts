@@ -26,6 +26,9 @@ export interface UserProfile {
   name: string;
   email: string;
   avatar: string | null;
+  language: "pt-BR" | "en" | "es";
+  notifyGenerations: boolean;
+  notifyPromotions: boolean;
 }
 
 export interface UserState {

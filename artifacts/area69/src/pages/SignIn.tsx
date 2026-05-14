@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation, Redirect } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { useI18n } from "@/lib/I18nContext";
+import { LANG_CHANGE_EVENT, LANG_KEY, useI18n } from "@/lib/I18nContext";
 import { setSession, isAuthenticated } from "@/lib/store";
 import { api } from "@/lib/api";
 
@@ -26,6 +26,8 @@ export default function SignIn() {
     try {
       const res = await api.auth.login({ email: email.trim().toLowerCase(), password });
       setSession(res.token);
+      localStorage.setItem(LANG_KEY, res.user.language);
+      window.dispatchEvent(new CustomEvent(LANG_CHANGE_EVENT, { detail: res.user.language }));
       setLocation("/dashboard");
     } catch (err) {
       setLoading(false);

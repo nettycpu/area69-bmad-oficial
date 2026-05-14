@@ -12,6 +12,7 @@ class User < ApplicationRecord
                        format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :credits,  numericality: { greater_than_or_equal_to: 0 }
   validates :password, length: { minimum: 8 }, allow_nil: true
+  validates :language, inclusion: { in: %w[pt-BR en es] }
 
   before_save :downcase_email
 

@@ -1,7 +1,12 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { translations, type Lang } from "./i18n";
 
-const LANG_KEY = "area69_lang";
+export const LANG_KEY = "area69_lang";
+export const LANG_CHANGE_EVENT = "area69:language-change";
+
+function isLang(value: unknown): value is Lang {
+  return value === "pt-BR" || value === "en" || value === "es";
+}
 
 interface I18nContextValue {
   lang: Lang;
@@ -22,7 +27,30 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   function setLang(newLang: Lang) {
     setLangState(newLang);
     localStorage.setItem(LANG_KEY, newLang);
+    window.dispatchEvent(new CustomEvent(LANG_CHANGE_EVENT, { detail: newLang }));
   }
+
+  useEffect(() => {
+    function handleLanguageEvent(event: Event) {
+      const customEvent = event as CustomEvent<Lang>;
+      if (isLang(customEvent.detail)) {
+        setLangState(customEvent.detail);
+      }
+    }
+
+    function handleStorage(event: StorageEvent) {
+      if (event.key === LANG_KEY && isLang(event.newValue)) {
+        setLangState(event.newValue);
+      }
+    }
+
+    window.addEventListener(LANG_CHANGE_EVENT, handleLanguageEvent);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener(LANG_CHANGE_EVENT, handleLanguageEvent);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
 
   function t(path: string, params?: Record<string, string | number>): string {
     const keys = path.split(".");

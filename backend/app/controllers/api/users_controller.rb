@@ -30,7 +30,7 @@ module Api
     private
 
     def user_params
-      params.permit(:name, :email, :avatar)
+      params.permit(:name, :email, :avatar, :language, :notify_generations, :notify_promotions)
     end
 
     def password_params

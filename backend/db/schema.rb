@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_14_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_14_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -128,7 +128,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_14_000000) do
     t.integer "credits", default: 0, null: false
     t.string "email", null: false
     t.integer "images_generated", default: 0, null: false
+    t.string "language", default: "pt-BR", null: false
     t.string "name", null: false
+    t.boolean "notify_generations", default: true, null: false
+    t.boolean "notify_promotions", default: false, null: false
     t.string "password_digest", null: false
     t.string "stripe_checkout_session_id"
     t.string "stripe_customer_id"
@@ -137,6 +140,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_14_000000) do
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["stripe_customer_id"], name: "index_users_on_stripe_customer_id", unique: true
     t.check_constraint "credits >= 0", name: "users_credits_nonnegative"
+    t.check_constraint "language::text = ANY (ARRAY['pt-BR'::character varying, 'en'::character varying, 'es'::character varying]::text[])", name: "users_language_allowed"
   end
 
   add_foreign_key "avatar_models", "users"

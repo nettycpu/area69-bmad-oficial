@@ -9,6 +9,9 @@ export interface ApiUser {
   credits: number;
   images_generated: number;
   videos_generated: number;
+  language: "pt-BR" | "en" | "es";
+  notify_generations: boolean;
+  notify_promotions: boolean;
 }
 
 export interface ApiModel {
@@ -87,7 +90,14 @@ export const api = {
   },
   user: {
     me: () => request<{ user: ApiUser }>("/user/me"),
-    update: (data: { name?: string; email?: string; avatar?: string | null }) =>
+    update: (data: {
+      name?: string;
+      email?: string;
+      avatar?: string | null;
+      language?: "pt-BR" | "en" | "es";
+      notify_generations?: boolean;
+      notify_promotions?: boolean;
+    }) =>
       request<{ user: ApiUser }>("/user/me", {
         method: "PATCH",
         body: JSON.stringify(data),

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useStore } from "@/lib/useStore";
@@ -58,12 +58,15 @@ export default function Settings() {
   const [name, setName]   = useState(state.profile.name);
   const [email, setEmail] = useState(state.profile.email);
   const [saved, setSaved] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(state.profile.avatar);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const [currentPlan] = useState("free");
-  const [notifGen, setNotifGen]     = useState(true);
-  const [notifPromo, setNotifPromo] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsSaving, setSettingsSaving] = useState<"language" | "notifGen" | "notifPromo" | null>(null);
   const [selectedPack, setSelectedPack] = useState<number | null>(null);
   const [buyStep, setBuyStep] = useState<"idle" | "confirm" | "done">("idle");
   // ── Change password state ──
@@ -73,12 +76,23 @@ export default function Settings() {
   const [pwConfirm, setPwConfirm] = useState("");
   const [pwError, setPwError]     = useState<string | null>(null);
   const [pwDone, setPwDone]       = useState(false);
+  const [pwSaving, setPwSaving]   = useState(false);
   const [pwShowCurrent, setPwShowCurrent]   = useState(false);
   const [pwShowNew, setPwShowNew]           = useState(false);
   const [pwShowConfirm, setPwShowConfirm]   = useState(false);
 
+  useEffect(() => {
+    setName(state.profile.name);
+    setEmail(state.profile.email);
+    setAvatarPreview(state.profile.avatar);
+  }, [state.profile.name, state.profile.email, state.profile.avatar]);
+
   async function handleChangePassword() {
     setPwError(null);
+    if (!pwCurrent) {
+      setPwError(t("settings.currentPasswordRequired"));
+      return;
+    }
     if (pwNew.length < 8) {
       setPwError(t("settings.passwordMinLength"));
       return;
@@ -87,6 +101,7 @@ export default function Settings() {
       setPwError(t("settings.passwordMismatch"));
       return;
     }
+    setPwSaving(true);
     try {
       await api.user.changePassword({ current_password: pwCurrent, new_password: pwNew });
       setPwDone(true);
@@ -97,6 +112,27 @@ export default function Settings() {
       }, 2500);
     } catch (err) {
       setPwError(err instanceof Error ? err.message : t("settings.passwordWrong"));
+    } finally {
+      setPwSaving(false);
+    }
+  }
+
+  async function persistSettings(
+    patch: Parameters<typeof updateProfile>[0],
+    savingKey: "language" | "notifGen" | "notifPromo",
+    successMessage: string,
+  ) {
+    setSettingsSaving(savingKey);
+    setSettingsError(null);
+    setSettingsMessage(null);
+    try {
+      await updateProfile(patch);
+      setSettingsMessage(successMessage);
+      setTimeout(() => setSettingsMessage(null), 2200);
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : "Nao foi possivel salvar as configuracoes.");
+    } finally {
+      setSettingsSaving(null);
     }
   }
 
@@ -117,15 +153,26 @@ export default function Settings() {
     reader.onload = (ev) => {
       const base64 = ev.target?.result as string;
       setAvatarPreview(base64);
-      updateProfile({ avatar: base64 });
+      updateProfile({ avatar: base64 }).catch((err) => {
+        setAvatarPreview(state.profile.avatar);
+        setProfileError(err instanceof Error ? err.message : "Nao foi possivel salvar a foto.");
+      });
     };
     reader.readAsDataURL(file);
   }
 
-  function handleSaveProfile() {
-    updateProfile({ name, email });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  async function handleSaveProfile() {
+    setProfileSaving(true);
+    setProfileError(null);
+    try {
+      await updateProfile({ name: name.trim(), email: email.trim().toLowerCase() });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "Nao foi possivel salvar o perfil.");
+    } finally {
+      setProfileSaving(false);
+    }
   }
 
   return (
@@ -161,7 +208,13 @@ export default function Settings() {
                   {avatarPreview ? t("settings.changePhoto") : t("settings.addPhoto")}
                 </button>
                 {avatarPreview && (
-                  <button onClick={() => { setAvatarPreview(null); updateProfile({ avatar: null }); }}
+                  <button onClick={() => {
+                    setAvatarPreview(null);
+                    updateProfile({ avatar: null }).catch((err) => {
+                      setAvatarPreview(state.profile.avatar);
+                      setProfileError(err instanceof Error ? err.message : "Nao foi possivel remover a foto.");
+                    });
+                  }}
                     className="text-[10px] font-black uppercase tracking-widest text-black/25 hover:text-black/50 transition-colors mt-0.5 block">
                     {t("settings.removePhoto")}
                   </button>
@@ -182,9 +235,13 @@ export default function Settings() {
               </div>
             </div>
 
-            <button onClick={handleSaveProfile} disabled={!name.trim() || !email.trim()}
+            {profileError && (
+              <p className="text-xs font-bold text-[#C0001A]">{profileError}</p>
+            )}
+
+            <button onClick={handleSaveProfile} disabled={!name.trim() || !email.trim() || profileSaving}
               className="bg-[#C0001A] text-white px-5 min-h-[44px] text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-              {saved ? t("settings.saved") : t("settings.saveChanges")}
+              {profileSaving ? t("settings.saving") : saved ? t("settings.saved") : t("settings.saveChanges")}
             </button>
           </div>
         </Section>
@@ -367,21 +424,48 @@ export default function Settings() {
         <Section title={t("settings.notifications")}>
           <div className="bg-white border border-black/8 divide-y divide-black/5">
             {[
-              { labelKey: "settings.notifGen", descKey: "settings.notifGenDesc", value: notifGen, set: setNotifGen },
-              { labelKey: "settings.notifPromo", descKey: "settings.notifPromoDesc", value: notifPromo, set: setNotifPromo },
+              {
+                labelKey: "settings.notifGen",
+                descKey: "settings.notifGenDesc",
+                value: state.profile.notifyGenerations,
+                savingKey: "notifGen" as const,
+                patchKey: "notifyGenerations" as const,
+              },
+              {
+                labelKey: "settings.notifPromo",
+                descKey: "settings.notifPromoDesc",
+                value: state.profile.notifyPromotions,
+                savingKey: "notifPromo" as const,
+                patchKey: "notifyPromotions" as const,
+              },
             ].map((item) => (
               <div key={item.labelKey} className="flex items-center justify-between px-5 py-4">
                 <div>
                   <p className="text-xs font-black text-black">{t(item.labelKey as Parameters<typeof t>[0])}</p>
                   <p className="text-[11px] text-black/30 font-medium mt-0.5">{t(item.descKey as Parameters<typeof t>[0])}</p>
                 </div>
-                <button onClick={() => item.set((v: boolean) => !v)}
-                  className={`relative w-12 h-7 rounded-full transition-colors duration-300 flex-shrink-0 ${item.value ? "bg-[#C0001A]" : "bg-black/15"}`}>
+                <button
+                  onClick={() =>
+                    persistSettings(
+                      { [item.patchKey]: !item.value },
+                      item.savingKey,
+                      t("settings.notificationsSaved"),
+                    )
+                  }
+                  disabled={settingsSaving === item.savingKey}
+                  aria-pressed={item.value}
+                  className={`relative w-12 h-7 rounded-full transition-colors duration-300 flex-shrink-0 disabled:opacity-60 ${item.value ? "bg-[#C0001A]" : "bg-black/15"}`}
+                >
                   <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-sm transition-transform duration-300 ${item.value ? "translate-x-5.5" : "translate-x-0"}`} />
                 </button>
               </div>
             ))}
           </div>
+          {(settingsMessage || settingsError) && (
+            <p className={`mt-2 text-xs font-bold ${settingsError ? "text-[#C0001A]" : "text-green-600"}`}>
+              {settingsError ?? settingsMessage}
+            </p>
+          )}
         </Section>
 
         <Section title={t("settings.security")}>
@@ -405,7 +489,14 @@ export default function Settings() {
                 <p className="text-xs font-black text-black">{t("settings.languageLabel")}</p>
                 <p className="text-[11px] text-black/30 font-medium mt-0.5">{t("settings.languageDesc")}</p>
               </div>
-              <select value={lang} onChange={(e) => setLang(e.target.value as Lang)}
+              <select
+                value={lang}
+                disabled={settingsSaving === "language"}
+                onChange={(e) => {
+                  const nextLang = e.target.value as Lang;
+                  setLang(nextLang);
+                  persistSettings({ language: nextLang }, "language", t("settings.languageSaved"));
+                }}
                 className="bg-white border border-black/10 text-xs font-black uppercase tracking-widest text-black/50 px-3 py-2.5 outline-none cursor-pointer hover:border-black/25 transition-colors">
                 <option value="pt-BR">Português (BR)</option>
                 <option value="en">English</option>
@@ -561,10 +652,10 @@ export default function Settings() {
                           <div className="flex gap-2 pt-1">
                             <button
                               onClick={handleChangePassword}
-                              disabled={!pwNew || !pwConfirm}
+                              disabled={!pwCurrent || !pwNew || !pwConfirm || pwSaving}
                               className="bg-[#C0001A] text-white px-5 min-h-[44px] text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                             >
-                              {t("settings.changePasswordBtn")}
+                              {pwSaving ? t("settings.saving") : t("settings.changePasswordBtn")}
                             </button>
                             <button
                               onClick={() => { setPwOpen(false); setPwError(null); setPwCurrent(""); setPwNew(""); setPwConfirm(""); }}
