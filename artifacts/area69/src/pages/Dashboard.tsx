@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useStore } from "@/lib/useStore";
 import { useI18n } from "@/lib/I18nContext";
+import { SUPPORT_WHATSAPP_URL } from "@/lib/supportLinks";
 
 export default function Dashboard() {
   const { state } = useStore();
@@ -109,11 +110,14 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <motion.div
+      <motion.a
+        href={SUPPORT_WHATSAPP_URL}
+        target="_blank"
+        rel="noopener noreferrer"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.45 }}
-        className="mb-8 block relative overflow-hidden bg-[#0a0a0a] opacity-60 cursor-default select-none"
+        className="mb-8 block relative overflow-hidden bg-[#0a0a0a] transition-opacity hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:ring-offset-2"
       >
         <div className="absolute -top-10 -left-10 w-48 h-48 bg-[#C0001A]/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-10 -right-10 w-56 h-56 bg-[#25D366]/15 rounded-full blur-3xl pointer-events-none" />
@@ -145,14 +149,14 @@ export default function Dashboard() {
               <span className="w-1.5 h-1.5 rounded-full bg-[#25D366] animate-pulse" />
               <span className="text-[9px] font-bold uppercase tracking-widest">{t("dashboard.whatsapp.active")}</span>
             </div>
-            <div className="bg-black/40 text-white/50 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border border-white/10">
-              Em breve
+            <div className="bg-[#25D366] text-black px-5 py-2.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border border-[#25D366]/50">
+              {t("dashboard.whatsapp.cta")}
             </div>
           </div>
         </div>
 
         <div className="h-0.5 w-full bg-gradient-to-r from-[#C0001A] via-[#25D366] to-transparent opacity-30" />
-      </motion.div>
+      </motion.a>
 
       <div className="mb-8">
         <div className="flex items-center justify-between mb-3">

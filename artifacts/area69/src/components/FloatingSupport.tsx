@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useI18n } from "@/lib/I18nContext";
+import { SUPPORT_WHATSAPP_URL } from "@/lib/supportLinks";
 
 export default function FloatingSupport() {
   const [open, setOpen] = useState(false);
@@ -15,7 +16,7 @@ export default function FloatingSupport() {
       ),
       label: "WhatsApp",
       sub: t("support.whatsappSub"),
-      href: "https://chat.whatsapp.com/IfsgOZCrkt57PkDT4HOhAs",
+      href: SUPPORT_WHATSAPP_URL,
       color: "bg-[#25D366] hover:bg-[#1ebe5d]",
     },
     {
