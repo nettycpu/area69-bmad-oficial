@@ -261,12 +261,7 @@ export default function GenerateAREA69() {
                 AREA69 Character Studio
               </p>
               <p className="text-[11px] text-black/40 font-medium mt-0.5">
-                Modelo treinado AREA69 · ID privado
-                {selectedSoulId && (
-                  <span className="ml-1 text-[#7C3AED]/60">
-                    · {selectedSoulId.slice(0, 8)}...
-                  </span>
-                )}
+                Identidade visual treinada
               </p>
             </div>
           </div>
@@ -322,7 +317,7 @@ export default function GenerateAREA69() {
                         {m.name}
                       </p>
                       <p className="text-[10px] text-black/40 font-medium mt-0.5 truncate">
-                        ID privado: {m.soulId?.slice(0, 12)}... · {m.imagesGenerated}{" "}
+                        Modelo pronto · {m.imagesGenerated}{" "}
                         imgs
                       </p>
                     </div>
@@ -628,7 +623,7 @@ export default function GenerateAREA69() {
               <span className="text-6xl opacity-10">⚡</span>
               <div>
                 <p className="text-lg font-black uppercase tracking-tight text-black/25">
-                  Geração com Character ID
+                  Geração com identidade AREA69
                 </p>
                 <p className="text-sm text-black/20 font-medium mt-1 max-w-sm">
                   Selecione um modelo treinado, escreva um prompt e gere imagens
@@ -637,9 +632,6 @@ export default function GenerateAREA69() {
               </div>
               <div className="text-[11px] text-black/20 font-medium border border-black/8 px-4 py-2">
                 AREA69 Character Studio
-                {selectedSoulId && (
-                  <span> · {selectedSoulId.slice(0, 8)}...</span>
-                )}
               </div>
             </motion.div>
           )}

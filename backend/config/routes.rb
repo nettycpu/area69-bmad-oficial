@@ -14,6 +14,7 @@ Rails.application.routes.draw do
     patch  "avatar_models/:id", to: "api/avatar_models#update"
     delete "avatar_models/:id", to: "api/avatar_models#destroy"
 
+    post "training/character",  to: "api/training#create"
     post "training/soul_id",    to: "api/training#create"
     get  "training/:id/status", to: "api/training#status"
 
@@ -32,6 +33,8 @@ Rails.application.routes.draw do
     post "generate/video",      to: "api/generate#create_video"
     get  "generate/video/:id",  to: "api/generate#video_status"
 
+    post "generate/character",          to: "api/generate#create_higgsfield"
+    get  "generate/character/:id/status", to: "api/generate#higgsfield_status"
     post "generate/higgsfield",         to: "api/generate#create_higgsfield"
     get  "generate/higgsfield/:id/status", to: "api/generate#higgsfield_status"
 

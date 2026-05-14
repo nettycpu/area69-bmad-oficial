@@ -178,17 +178,17 @@ export const api = {
       enhance_prompt?: boolean;
     }) =>
       request<{ prediction_id: string; status: string; job_id?: number; credits?: number }>(
-        "/generate/higgsfield",
+        "/generate/character",
         { method: "POST", body: JSON.stringify(data) },
       ),
     higgsfieldStatus: (id: string) =>
       request<{ status: string; outputs: string[]; error?: string; credits?: number }>(
-        `/generate/higgsfield/${id}/status`,
+        `/generate/character/${id}/status`,
       ),
   },
   training: {
     startSoulId: (data: { name: string; images: string[] }) =>
-      request<{ model: ApiModel; credits: number }>("/training/soul_id", {
+      request<{ model: ApiModel; credits: number }>("/training/character", {
         method: "POST",
         body: JSON.stringify(data),
       }),

@@ -17,7 +17,7 @@ class Rack::Attack
 
   # Training
   throttle("training/user", limit: 3, period: 3600) do |req|
-    req.env["jwt.user_id"] if req.path == "/api/training/soul_id" && req.post?
+    req.env["jwt.user_id"] if req.path.in?(["/api/training/character", "/api/training/soul_id"]) && req.post?
   end
 
   # Checkout

@@ -98,7 +98,7 @@ function ModelCard({ model, onDelete, onStatusUpdate }: {
         <p className="text-sm font-black uppercase tracking-tight text-black leading-tight">{model.name}</p>
         {model.soulId && (
           <p className="text-[11px] text-[#C0001A] font-bold mt-0.5 truncate" title={model.soulId}>
-            Character ID: {model.soulId.slice(0, 20)}…
+            Identidade AREA69 ativa
           </p>
         )}
         <div className="flex gap-3 mt-1">
@@ -111,7 +111,7 @@ function ModelCard({ model, onDelete, onStatusUpdate }: {
 
         <div className="flex gap-2 mt-3">
           {model.status === "ready" && (
-            <Link href={`/dashboard/higgsfield?model=${model.id}`}
+            <Link href={`/dashboard/character?model=${model.id}`}
               className="flex-1 bg-[#C0001A] text-white py-3 text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors text-center min-h-[44px] flex items-center justify-center">
               {t("models.useModel")}
             </Link>
@@ -394,7 +394,7 @@ function NewModelModal({ onClose, onCreated, availableCredits, trainingCost, onC
                   </div>
                   <div>
                     <p className="text-[9px] font-black uppercase tracking-widest text-white/60">Tecnologia AREA69</p>
-                    <p className="text-[11px] font-black uppercase tracking-widest">AREA69 Character ID</p>
+                    <p className="text-[11px] font-black uppercase tracking-widest">AREA69 Character</p>
                   </div>
                 </div>
 

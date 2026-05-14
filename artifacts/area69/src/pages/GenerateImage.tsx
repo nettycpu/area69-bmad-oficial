@@ -230,7 +230,7 @@ export default function GenerateImage() {
               AREA69 Image Studio usa imagem de referência
             </p>
             <p className="text-[11px] text-black/25 font-medium">
-              Para usar um modelo treinado da AREA69, vá em <a href="/dashboard/higgsfield" className="text-[#C0001A] font-black hover:underline">AREA69 Character</a>
+              Para usar um modelo treinado da AREA69, vá em <a href="/dashboard/character" className="text-[#C0001A] font-black hover:underline">AREA69 Character</a>
             </p>
           </div>
 

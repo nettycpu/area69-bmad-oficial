@@ -18,7 +18,7 @@ export default function DashboardLayout({ children, title, subtitle }: {
     { icon: "◈", label: t("nav.models"),         href: "/dashboard/models" },
     { icon: "✦", label: t("nav.generateImage"),  href: "/dashboard/generate" },
     { icon: "▷", label: t("nav.generateVideo"),  href: "/dashboard/video" },
-    { icon: "⚡", label: t("nav.higgsfield"),    href: "/dashboard/higgsfield" },
+    { icon: "⚡", label: t("nav.higgsfield"),    href: "/dashboard/character" },
     { icon: "◷", label: t("nav.history"),        href: "/dashboard/history" },
     { icon: "⚙", label: t("nav.settings"),       href: "/dashboard/settings" },
   ];

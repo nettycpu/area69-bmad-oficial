@@ -15,7 +15,7 @@ import Dashboard from "@/pages/Dashboard";
 import Models from "@/pages/Models";
 import GenerateImage from "@/pages/GenerateImage";
 import GenerateVideo from "@/pages/GenerateVideo";
-import GenerateHiggsfield from "@/pages/GenerateHiggsfield";
+import GenerateCharacter from "@/pages/GenerateHiggsfield";
 import History from "@/pages/History";
 import Settings from "@/pages/Settings";
 import Billing from "@/pages/Billing";
@@ -37,7 +37,8 @@ function Router() {
       <Route path="/dashboard/models">{() => <ProtectedRoute component={Models} />}</Route>
       <Route path="/dashboard/generate">{() => <ProtectedRoute component={GenerateImage} />}</Route>
       <Route path="/dashboard/video">{() => <ProtectedRoute component={GenerateVideo} />}</Route>
-      <Route path="/dashboard/higgsfield">{() => <ProtectedRoute component={GenerateHiggsfield} />}</Route>
+      <Route path="/dashboard/character">{() => <ProtectedRoute component={GenerateCharacter} />}</Route>
+      <Route path="/dashboard/higgsfield">{() => <Redirect to={`/dashboard/character${window.location.search}`} />}</Route>
       <Route path="/dashboard/history">{() => <ProtectedRoute component={History} />}</Route>
       <Route path="/dashboard/settings">{() => <ProtectedRoute component={Settings} />}</Route>
       <Route path="/dashboard/billing">{() => <ProtectedRoute component={Billing} />}</Route>
