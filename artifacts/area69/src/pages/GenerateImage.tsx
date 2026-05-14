@@ -29,6 +29,7 @@ function aspectStyle(ratio: string) {
 }
 
 const MAX_REF_FILE_BYTES = 10 * 1024 * 1024;
+const ALLOWED_REF_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const COST_PER_IMAGE = 5;
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_ATTEMPTS = 60;
@@ -64,6 +65,10 @@ export default function GenerateImage() {
   }, []);
 
   function loadFile(file: File) {
+    if (!ALLOWED_REF_MIME_TYPES.includes(file.type)) {
+      alert("Formato de imagem nao suportado. Use JPG, PNG ou WebP.");
+      return;
+    }
     if (file.size > MAX_REF_FILE_BYTES) {
       alert("Imagem muito grande. Máximo: 10MB.");
       return;
@@ -262,7 +267,7 @@ export default function GenerateImage() {
                 <p className="text-2xl mb-2 opacity-40 group-hover:opacity-70 transition-opacity">🖼</p>
                 <p className="text-xs font-black uppercase tracking-widest text-black/40 group-hover:text-black/60 transition-colors">{t("generateImage.dragOrClick")}</p>
                 <p className="text-[11px] text-black/20 font-medium mt-1">{t("generateImage.imageTypes")}</p>
-                <input ref={refInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) loadFile(file); }} />
+                <input ref={refInputRef} type="file" accept={ALLOWED_REF_MIME_TYPES.join(",")} className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) loadFile(file); }} />
               </div>
             )}
             <p className="text-[11px] text-black/25 font-medium mt-2">A IA edita sua imagem de referência com base no prompt</p>

@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/I18nContext";
 import { api, ApiError } from "@/lib/api";
 
 const MAX_REF_FILE_BYTES = 10 * 1024 * 1024;
+const ALLOWED_REF_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const COST_PER_IMAGE = 5;
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_ATTEMPTS = 60;
@@ -66,6 +67,10 @@ export default function GenerateAREA69() {
   }, []);
 
   function loadFile(file: File) {
+    if (!ALLOWED_REF_MIME_TYPES.includes(file.type)) {
+      alert("Formato de imagem nao suportado. Use JPG, PNG ou WebP.");
+      return;
+    }
     if (file.size > MAX_REF_FILE_BYTES) {
       alert("Imagem muito grande. Máximo: 10MB.");
       return;
@@ -80,6 +85,19 @@ export default function GenerateAREA69() {
       setReferenceImages((prev) => [...prev, url]);
     };
     reader.readAsDataURL(file);
+  }
+
+  function loadFiles(fileList: FileList | File[]) {
+    const files = Array.from(fileList);
+    const slots = 6 - referenceImages.length;
+    if (slots <= 0) {
+      alert("Maximo de 6 imagens de referencia.");
+      return;
+    }
+    files.slice(0, slots).forEach(loadFile);
+    if (files.length > slots) {
+      alert("Maximo de 6 imagens de referencia.");
+    }
   }
 
   function removeRefImage(index: number) {
@@ -356,8 +374,7 @@ export default function GenerateAREA69() {
               onClick={() => refInputRef.current?.click()}
               onDrop={(e) => {
                 e.preventDefault();
-                const file = e.dataTransfer.files[0];
-                if (file) loadFile(file);
+                loadFiles(e.dataTransfer.files);
               }}
               onDragOver={(e) => e.preventDefault()}
               className="border-2 border-dashed border-[#7C3AED]/30 hover:border-[#7C3AED] transition-colors p-6 text-center cursor-pointer group"
@@ -374,11 +391,11 @@ export default function GenerateAREA69() {
               <input
                 ref={refInputRef}
                 type="file"
-                accept="image/*"
+                accept={ALLOWED_REF_MIME_TYPES.join(",")}
+                multiple
                 className="hidden"
                 onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) loadFile(file);
+                  if (e.target.files) loadFiles(e.target.files);
                 }}
               />
             </div>

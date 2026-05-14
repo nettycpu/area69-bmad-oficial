@@ -13,8 +13,14 @@ module Api
     QWEN_MODEL         = "wavespeed-ai/qwen-image-2.0-pro/edit"
     SEEDANCE_MODEL     = "bytedance/seedance-v1.5-pro/image-to-video"
 
-    ASPECT_RATIOS = %w[1:1 3:4 4:5 9:16 16:9 21:9 4:3 3:4].freeze
+    ASPECT_RATIOS = %w[21:9 16:9 4:3 1:1 3:4 9:16].freeze
     RESOLUTIONS   = %w[480p 720p 1080p].freeze
+    HIGGSFIELD_ASPECT_RATIOS = %w[1:1 3:4 4:5 9:16 16:9].freeze
+    HIGGSFIELD_RESOLUTIONS = %w[720p 1080p].freeze
+    MAX_PROMPT_LENGTH = 800
+    MIN_PROMPT_LENGTH = 3
+    MAX_SEED = 2_147_483_647
+    BOOLEAN_PARAM = ActiveModel::Type::Boolean.new
 
     SIZE_MAP = {
       ["1:1",  "480p"]  => "480*480",
@@ -50,9 +56,14 @@ module Api
       seed   = params[:seed]
 
       return render_error("Prompt e obrigatorio") if prompt.blank?
+      return render_error("Prompt deve ter pelo menos #{MIN_PROMPT_LENGTH} caracteres") if prompt.length < MIN_PROMPT_LENGTH
+      return render_error("Prompt deve ter no maximo #{MAX_PROMPT_LENGTH} caracteres") if prompt.length > MAX_PROMPT_LENGTH
       return render_error("Imagem de referencia e obrigatoria") if images.empty?
-      return render_error("Maximo de 6 imagens de referencia") if images.size > 6
-      size = SIZE_MAP[[aspect, res]] || "1024*1024"
+      return render_error("Proporcao invalida") unless ASPECT_RATIOS.include?(aspect)
+      return render_error("Resolucao invalida") unless RESOLUTIONS.include?(res)
+      validate_seed!(seed)
+      UploadValidator.validate_reference_inputs(images, max: 6)
+      size = SIZE_MAP.fetch([aspect, res])
 
       job = nil
       ActiveRecord::Base.transaction do
@@ -181,14 +192,21 @@ module Api
       prompt         = params[:prompt].to_s.strip
       image          = params[:image].to_s
       aspect_ratio   = params[:aspect_ratio].to_s.presence || "16:9"
-      duration       = [[params[:duration].to_i, 4].max, 12].min
+      duration       = Integer(params[:duration].presence || 5, exception: false)
       resolution     = params[:resolution].to_s.presence || "720p"
-      generate_audio = params[:generate_audio] != false
-      camera_fixed   = params[:camera_fixed] == true
+      generate_audio = BOOLEAN_PARAM.cast(params.key?(:generate_audio) ? params[:generate_audio] : true)
+      camera_fixed   = BOOLEAN_PARAM.cast(params[:camera_fixed])
       seed           = params[:seed]
 
       return render_error("Prompt e obrigatorio") if prompt.blank?
+      return render_error("Prompt deve ter pelo menos #{MIN_PROMPT_LENGTH} caracteres") if prompt.length < MIN_PROMPT_LENGTH
+      return render_error("Prompt deve ter no maximo #{MAX_PROMPT_LENGTH} caracteres") if prompt.length > MAX_PROMPT_LENGTH
       return render_error("Imagem de referencia e obrigatoria") if image.blank?
+      return render_error("Duracao invalida") unless duration&.between?(4, 12)
+      return render_error("Proporcao invalida") unless ASPECT_RATIOS.include?(aspect_ratio)
+      return render_error("Resolucao invalida") unless RESOLUTIONS.include?(resolution)
+      validate_seed!(seed)
+      UploadValidator.validate_reference_input(image)
 
       job = nil
       ActiveRecord::Base.transaction do
@@ -322,19 +340,26 @@ module Api
       seed              = params[:seed]
       aspect_ratio      = params[:aspect_ratio].to_s.presence || "9:16"
       resolution        = params[:resolution].to_s.presence || "720p"
-      character_strength = params[:character_strength] || 1
+      character_strength = Float(params[:character_strength].presence || 1, exception: false)
       result_images     = Integer(params[:result_images].presence || 1, exception: false) || 1
-      enhance_prompt    = params.key?(:enhance_prompt) ? params[:enhance_prompt] : true
+      enhance_prompt    = BOOLEAN_PARAM.cast(params.key?(:enhance_prompt) ? params[:enhance_prompt] : true)
       cost_credits      = Pricing::HIGGSFIELD_CHARACTER * result_images
 
       return render_error("Modelo e obrigatorio") if model_id.blank?
       return render_error("Quantidade de resultados invalida") unless [1, 4].include?(result_images)
+      return render_error("Proporcao invalida") unless HIGGSFIELD_ASPECT_RATIOS.include?(aspect_ratio)
+      return render_error("Resolucao invalida") unless HIGGSFIELD_RESOLUTIONS.include?(resolution)
+      return render_error("Fidelidade do modelo invalida") unless character_strength&.between?(0.0, 1.0)
+      validate_seed!(seed)
 
       model = current_user.avatar_models.find_by!(id: model_id)
       return render_error("Modelo nao esta pronto — Character ID nao encontrado. Conclua o treinamento primeiro.") unless model.soul_id.present? && model.status == "ready"
 
       return render_error("Prompt e obrigatorio") if prompt.blank?
+      return render_error("Prompt deve ter pelo menos #{MIN_PROMPT_LENGTH} caracteres") if prompt.length < MIN_PROMPT_LENGTH
+      return render_error("Prompt deve ter no maximo #{MAX_PROMPT_LENGTH} caracteres") if prompt.length > MAX_PROMPT_LENGTH
       return render_error("Maximo de 6 imagens de referencia") if images.size > 6
+      UploadValidator.validate_reference_inputs(images, max: 6) if images.any?
       raise CreditLedger::InsufficientCredits if current_user.credits < cost_credits
 
       if images.any? { |img| img.start_with?("data:") }
@@ -372,7 +397,7 @@ module Api
       options = {
         aspect_ratio: aspect_ratio,
         resolution: resolution,
-        character_strength: character_strength.to_f,
+        character_strength: character_strength,
         result_images: result_images,
         enhance_prompt: enhance_prompt,
         images: images,
@@ -447,6 +472,22 @@ module Api
     end
 
     private
+
+    def validate_seed!(seed)
+      return true if seed.blank? || seed.to_s == "-1"
+
+      normalized = seed.to_s
+      unless normalized.match?(/\A\d+\z/)
+        raise UploadValidator::ValidationError, "Seed deve ser numerica"
+      end
+
+      value = normalized.to_i
+      unless value.between?(0, MAX_SEED)
+        raise UploadValidator::ValidationError, "Seed fora do intervalo permitido"
+      end
+
+      true
+    end
 
     # ─────────────────────────── Payload normalization ──────────────────────
 

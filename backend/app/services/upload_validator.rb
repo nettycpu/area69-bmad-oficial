@@ -1,3 +1,5 @@
+require "uri"
+
 class UploadValidator
   ALLOWED_MIME_TYPES = %w[image/jpeg image/png image/webp].freeze
 
@@ -17,6 +19,32 @@ class UploadValidator
   MAX_TRAINING_TOTAL = 200.megabytes
 
   class ValidationError < StandardError; end
+
+  def self.validate_reference_input(value)
+    raise ValidationError, "Imagem de referencia invalida" if value.blank?
+
+    if value.start_with?("data:")
+      validate_data_url(value, context: :reference)
+      return true
+    end
+
+    uri = URI.parse(value)
+    unless %w[https http].include?(uri.scheme) && uri.host.present?
+      raise ValidationError, "URL de imagem de referencia invalida"
+    end
+
+    true
+  rescue URI::InvalidURIError
+    raise ValidationError, "URL de imagem de referencia invalida"
+  end
+
+  def self.validate_reference_inputs(values, max: 6)
+    raise ValidationError, "Nenhuma imagem fornecida" if values.blank?
+    raise ValidationError, "Maximo de #{max} imagens de referencia" if values.size > max
+
+    values.each { |value| validate_reference_input(value.to_s) }
+    true
+  end
 
   def self.validate_data_url(data_url, context: :reference)
     raise ValidationError, "Formato de imagem invalido" unless data_url.start_with?("data:image/")

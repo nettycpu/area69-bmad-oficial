@@ -158,14 +158,22 @@ function NewModelModal({ onClose, onCreated, availableCredits, trainingCost, onC
   const { t } = useI18n();
 
   const MAX_FILE_BYTES = 10 * 1024 * 1024;
+  const ALLOWED_TRAINING_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
   const MIN_PHOTOS = 10;
   const MAX_PHOTOS = 30;
 
   const handleFiles = (incoming: FileList | null) => {
     if (!incoming || incoming.length === 0) return;
-    const valid = Array.from(incoming).filter(
-      (f) => f.size <= MAX_FILE_BYTES && f.type.startsWith("image/")
+    const incomingFiles = Array.from(incoming);
+    const valid = incomingFiles.filter(
+      (f) => f.size <= MAX_FILE_BYTES && ALLOWED_TRAINING_MIME_TYPES.includes(f.type)
     );
+
+    if (valid.length !== incomingFiles.length) {
+      setError("Alguns arquivos foram ignorados. Use JPG, PNG ou WebP com no maximo 10MB por foto.");
+    } else {
+      setError(null);
+    }
 
     setFiles((prev) => {
       const merged = [...prev, ...valid].slice(0, MAX_PHOTOS);
@@ -323,7 +331,7 @@ function NewModelModal({ onClose, onCreated, availableCredits, trainingCost, onC
                   <p className="text-2xl mb-2">📁</p>
                   <p className="text-xs font-black uppercase tracking-widest text-black/40">{t("models.modal.step2Drag")}</p>
                   <p className="text-[10px] text-black/25 font-medium mt-1">JPG, PNG, WEBP · máx {MAX_PHOTOS} fotos · máx 10MB por foto</p>
-                  <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+                  <input ref={fileRef} type="file" accept={ALLOWED_TRAINING_MIME_TYPES.join(",")} multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
                 </div>
 
                 {previews.filter(Boolean).length > 0 && (

@@ -28,6 +28,7 @@ function aspectStyle(ratio: string) {
 }
 
 const MAX_REF_FILE_BYTES = 10 * 1024 * 1024;
+const ALLOWED_REF_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const COST = 30;
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLL_ATTEMPTS = 120;
@@ -66,6 +67,10 @@ export default function GenerateVideo() {
   }, []);
 
   function loadFile(file: File) {
+    if (!ALLOWED_REF_MIME_TYPES.includes(file.type)) {
+      alert("Formato de imagem nao suportado. Use JPG, PNG ou WebP.");
+      return;
+    }
     if (file.size > MAX_REF_FILE_BYTES) {
       alert("Imagem muito grande. Máximo: 10MB.");
       return;
@@ -244,7 +249,7 @@ export default function GenerateVideo() {
                 <p className="text-2xl mb-2 opacity-40 group-hover:opacity-70 transition-opacity">🖼</p>
                 <p className="text-xs font-black uppercase tracking-widest text-black/40 group-hover:text-black/60 transition-colors">{t("generateVideo.dragOrClick")}</p>
                 <p className="text-[11px] text-black/20 font-medium mt-1">JPG, PNG, WEBP</p>
-                <input ref={refInputRef} type="file" accept="image/*" className="hidden"
+                <input ref={refInputRef} type="file" accept={ALLOWED_REF_MIME_TYPES.join(",")} className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) loadFile(f); }} />
               </div>
             )}
