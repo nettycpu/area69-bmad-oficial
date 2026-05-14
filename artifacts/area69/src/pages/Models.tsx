@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useStore } from "@/lib/useStore";
 import { useI18n } from "@/lib/I18nContext";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import type { Model } from "@/lib/store";
 
 const POLL_INTERVAL_MS = 8000;
@@ -141,10 +141,12 @@ function ModelCard({ model, onDelete, onStatusUpdate }: {
 
 type Step = "name" | "upload" | "confirm";
 
-function NewModelModal({ onClose, onCreated, availableCredits }: {
+function NewModelModal({ onClose, onCreated, availableCredits, trainingCost, onCreditsSync }: {
   onClose: () => void;
   onCreated: (model: Model, newCredits: number) => void;
   availableCredits: number;
+  trainingCost: number;
+  onCreditsSync: (credits: number) => void;
 }) {
   const [step, setStep] = useState<Step>("name");
   const [name, setName] = useState("");
@@ -198,7 +200,7 @@ function NewModelModal({ onClose, onCreated, availableCredits }: {
   };
 
   const handleCreate = async () => {
-    if (availableCredits < TRAINING_COST) {
+    if (availableCredits < trainingCost) {
       setError(`Créditos insuficientes — você tem ${availableCredits} créditos`);
       return;
     }
@@ -244,6 +246,9 @@ function NewModelModal({ onClose, onCreated, availableCredits }: {
       onCreated(model, res.credits);
       onClose();
     } catch (err) {
+      if (err instanceof ApiError && typeof err.data?.credits === "number") {
+        onCreditsSync(err.data.credits);
+      }
       setError(err instanceof Error ? err.message : "Erro ao iniciar treinamento. Tente novamente.");
       setLoading(false);
     }
@@ -251,7 +256,7 @@ function NewModelModal({ onClose, onCreated, availableCredits }: {
 
   const steps: Step[] = ["name", "upload", "confirm"];
   const stepIndex = steps.indexOf(step);
-  const hasEnoughCredits = availableCredits >= TRAINING_COST;
+  const hasEnoughCredits = availableCredits >= trainingCost;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -287,7 +292,7 @@ function NewModelModal({ onClose, onCreated, availableCredits }: {
                 {!hasEnoughCredits && (
                   <div className="bg-red-50 border border-red-200 px-4 py-3 mb-4">
                     <p className="text-xs font-bold text-red-600">Créditos insuficientes</p>
-                    <p className="text-[11px] text-red-500 mt-0.5">Você tem {availableCredits} créditos. O treinamento custa {TRAINING_COST} créditos.</p>
+                    <p className="text-[11px] text-red-500 mt-0.5">Você tem {availableCredits} créditos. O treinamento custa {trainingCost} créditos.</p>
                     <Link href="/dashboard/billing" className="text-[11px] font-black text-[#C0001A] uppercase tracking-widest mt-2 block hover:underline">
                       → Comprar créditos
                     </Link>
@@ -396,11 +401,11 @@ function NewModelModal({ onClose, onCreated, availableCredits }: {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[10px] font-black uppercase tracking-widest text-black/40">{t("models.modal.costLabel")}</span>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[#C0001A]">{TRAINING_COST} créditos</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#C0001A]">{trainingCost} créditos</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[10px] font-black uppercase tracking-widest text-black/40">Saldo após</span>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-black">{availableCredits - TRAINING_COST} créditos</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-black">{availableCredits - trainingCost} créditos</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[10px] font-black uppercase tracking-widest text-black/40">{t("models.modal.timeLabel")}</span>
@@ -452,9 +457,16 @@ function NewModelModal({ onClose, onCreated, availableCredits }: {
 export default function Models() {
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState<"all" | "ready" | "training">("all");
+  const [trainingCost, setTrainingCost] = useState(TRAINING_COST);
   const { state, deleteModel, updateModel, addModelDirect, updateCredits } = useStore();
   const { t } = useI18n();
   const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    api.pricing()
+      .then((pricing) => setTrainingCost(pricing.higgsfield_training))
+      .catch(() => {});
+  }, []);
 
   const filtered = state.models.filter((m) => {
     if (filter === "all") return true;
@@ -485,6 +497,8 @@ export default function Models() {
             onClose={() => setShowModal(false)}
             onCreated={handleCreated}
             availableCredits={state.credits}
+            trainingCost={trainingCost}
+            onCreditsSync={updateCredits}
           />
         )}
       </AnimatePresence>

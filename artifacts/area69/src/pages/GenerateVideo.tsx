@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -55,8 +55,15 @@ export default function GenerateVideo() {
   const refInputRef = React.useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const consecutiveErrorsRef = useRef(0);
+  const [videoCost, setVideoCost] = useState(COST);
 
   const canGenerate = prompt.trim().length >= 3 && referenceImage && !generating;
+
+  useEffect(() => {
+    api.pricing()
+      .then((pricing) => setVideoCost(pricing.seedance_video))
+      .catch(() => {});
+  }, []);
 
   function loadFile(file: File) {
     if (file.size > MAX_REF_FILE_BYTES) {
@@ -348,7 +355,7 @@ export default function GenerateVideo() {
           </div>
 
           {/* Generate button */}
-          <button onClick={handleGenerate} disabled={!canGenerate || COST > state.credits}
+          <button onClick={handleGenerate} disabled={!canGenerate || videoCost > state.credits}
             className="w-full bg-[#C0001A] text-white py-4 min-h-[52px] text-xs font-black uppercase tracking-widest hover:bg-[#a00015] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
             {generating ? (
               <span className="flex items-center justify-center gap-2">
@@ -356,7 +363,7 @@ export default function GenerateVideo() {
                 {generatingStatus || "Gerando..."}
               </span>
             ) : (
-              <span>{t("generateVideo.generateBtn", { cost: COST })}</span>
+              <span>{t("generateVideo.generateBtn", { cost: videoCost })}</span>
             )}
           </button>
 
@@ -366,7 +373,7 @@ export default function GenerateVideo() {
             </p>
           )}
 
-          {COST > state.credits ? (
+          {videoCost > state.credits ? (
             <p className="text-[11px] text-[#C0001A] font-bold text-center -mt-2 uppercase tracking-wide">
               {t("generateVideo.insufficientCredits", { n: state.credits })}
             </p>
@@ -436,7 +443,7 @@ export default function GenerateVideo() {
                   <p className="text-xs font-black uppercase tracking-widest text-black">{t("generateVideo.videoGenerated")}</p>
                   <p className="text-[11px] text-black/40 font-medium mt-0.5 italic truncate max-w-xs">"{lastPrompt}"</p>
                 </div>
-                <button onClick={handleGenerate} disabled={!canGenerate || COST > state.credits}
+                <button onClick={handleGenerate} disabled={!canGenerate || videoCost > state.credits}
                   className="bg-black text-white px-5 py-3 text-xs font-black uppercase tracking-widest hover:bg-[#C0001A] transition-colors disabled:opacity-30 min-h-[44px]">
                   {t("generateVideo.generateAgain")}
                 </button>

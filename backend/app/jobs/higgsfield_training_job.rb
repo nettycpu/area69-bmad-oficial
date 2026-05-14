@@ -44,7 +44,7 @@ class HiggsfieldTrainingJob < ApplicationJob
       begin
         CreditLedger.refund!(
           user: model.user,
-          amount: Pricing::HIGGSFIELD_TRAINING,
+          amount: job.cost_credits,
           source: "higgsfield_training",
           idempotency_key: "training:avatar_model:#{model.id}:refund",
           reference: job,

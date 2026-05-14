@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useStore } from "@/lib/useStore";
@@ -52,9 +52,16 @@ export default function GenerateImage() {
   const [genError, setGenError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const consecutiveErrorsRef = useRef(0);
+  const [imageCost, setImageCost] = useState(COST_PER_IMAGE);
 
   const canGenerate = prompt.trim().length >= 3 && referenceImage && !generating;
-  const totalCost = COST_PER_IMAGE;
+  const totalCost = imageCost;
+
+  useEffect(() => {
+    api.pricing()
+      .then((pricing) => setImageCost(pricing.qwen_image))
+      .catch(() => {});
+  }, []);
 
   function loadFile(file: File) {
     if (file.size > MAX_REF_FILE_BYTES) {

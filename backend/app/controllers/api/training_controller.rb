@@ -16,6 +16,7 @@ module Api
       return render_error("Nome é obrigatório") if name.blank?
       return render_error("Envie pelo menos 10 fotos") if images.size < 10
       return render_error("Máximo de 30 fotos") if images.size > 30
+      raise CreditLedger::InsufficientCredits if current_user.credits < TRAINING_COST
 
       # Upload imagens para R2 (antes de salvar — não persistir base64 no banco)
       input_urls = upload_images_to_r2(name, images)
@@ -64,7 +65,10 @@ module Api
         credits: current_user.reload.credits
       }, status: :created
     rescue CreditLedger::InsufficientCredits
-      render_error("Créditos insuficientes — você tem #{current_user.credits}", :payment_required)
+      render json: {
+        error: "Créditos insuficientes — você tem #{current_user.reload.credits}",
+        credits: current_user.credits
+      }, status: :payment_required
     rescue ActiveRecord::RecordInvalid => e
       render_error(e.message)
     end
@@ -127,7 +131,7 @@ module Api
 
       CreditLedger.refund!(
         user: model.user,
-        amount: TRAINING_COST,
+        amount: job&.cost_credits || TRAINING_COST,
         source: "higgsfield_training",
         idempotency_key: "training:avatar_model:#{model.id}:refund",
         reference: job,

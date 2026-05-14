@@ -114,7 +114,7 @@ module Api
         }
       end
     rescue CreditLedger::InsufficientCredits
-      render_error("Creditos insuficientes", :payment_required)
+      render json: { error: "Creditos insuficientes", credits: current_user.reload.credits }, status: :payment_required
     rescue ActiveRecord::RecordInvalid => e
       render_error(e.message)
     end
@@ -255,7 +255,7 @@ module Api
         }
       end
     rescue CreditLedger::InsufficientCredits
-      render_error("Creditos insuficientes", :payment_required)
+      render json: { error: "Creditos insuficientes", credits: current_user.reload.credits }, status: :payment_required
     rescue ActiveRecord::RecordInvalid => e
       render_error(e.message)
     end
@@ -323,16 +323,19 @@ module Api
       aspect_ratio      = params[:aspect_ratio].to_s.presence || "9:16"
       resolution        = params[:resolution].to_s.presence || "720p"
       character_strength = params[:character_strength] || 1
-      result_images     = params[:result_images] || 1
+      result_images     = Integer(params[:result_images].presence || 1, exception: false) || 1
       enhance_prompt    = params.key?(:enhance_prompt) ? params[:enhance_prompt] : true
+      cost_credits      = Pricing::HIGGSFIELD_CHARACTER * result_images
 
       return render_error("Modelo e obrigatorio") if model_id.blank?
+      return render_error("Quantidade de resultados invalida") unless [1, 4].include?(result_images)
 
       model = current_user.avatar_models.find_by!(id: model_id)
       return render_error("Modelo nao esta pronto — Character ID nao encontrado. Conclua o treinamento primeiro.") unless model.soul_id.present? && model.status == "ready"
 
       return render_error("Prompt e obrigatorio") if prompt.blank?
       return render_error("Maximo de 6 imagens de referencia") if images.size > 6
+      raise CreditLedger::InsufficientCredits if current_user.credits < cost_credits
 
       if images.any? { |img| img.start_with?("data:") }
         public_urls = upload_images_to_r2(model, images)
@@ -346,7 +349,7 @@ module Api
           provider_model: "higgsfield-ai/soul/character",
           generation_type: "image",
           status: "queued",
-          cost_credits: Pricing::HIGGSFIELD_CHARACTER,
+          cost_credits: cost_credits,
           prompt: prompt,
           input_urls: images,
           aspect_ratio: aspect_ratio,
@@ -358,7 +361,7 @@ module Api
 
         CreditLedger.spend!(
           user: current_user,
-          amount: Pricing::HIGGSFIELD_CHARACTER,
+          amount: cost_credits,
           source: "higgsfield_character",
           idempotency_key: "generation_job:#{job.id}:charge",
           reference: job
@@ -370,7 +373,7 @@ module Api
         aspect_ratio: aspect_ratio,
         resolution: resolution,
         character_strength: character_strength.to_f,
-        result_images: result_images.to_i,
+        result_images: result_images,
         enhance_prompt: enhance_prompt,
         images: images,
         seed: seed
@@ -406,7 +409,7 @@ module Api
     rescue ActiveRecord::RecordNotFound
       render_error("Modelo nao encontrado", :not_found)
     rescue CreditLedger::InsufficientCredits
-      render_error("Creditos insuficientes", :payment_required)
+      render json: { error: "Creditos insuficientes", credits: current_user.reload.credits }, status: :payment_required
     end
 
     def higgsfield_status
@@ -506,6 +509,10 @@ module Api
     def complete_job!(job, outputs:)
       # Phase 1: mark job completed atomically (always persists even if history fails)
       job.with_lock do
+        if job.status == "failed" || job.refunded_at.present?
+          return { status: job.status, outputs: job.output_urls, credits: current_user.reload.credits }
+        end
+
         if job.status == "completed" && job.output_urls.any? && (job.metadata || {})["generation_created"]
           return { status: "completed", outputs: job.output_urls, credits: current_user.reload.credits }
         end
@@ -576,36 +583,44 @@ module Api
     end
 
     def fail_job!(job, error_message)
-      job.update!(status: "failed", error_message: error_message)
+      job.with_lock do
+        if job.status == "completed"
+          return { status: "completed", outputs: job.output_urls, credits: current_user.reload.credits }
+        end
 
-      unless job.refunded_at
-        CreditLedger.refund!(
-          user: current_user,
-          amount: job.cost_credits,
-          source: job.source_for_refund,
-          idempotency_key: "generation_job:#{job.id}:refund",
-          reference: job,
-          metadata: { error: error_message }
-        )
-        job.update!(refunded_at: Time.current)
+        job.update!(status: "failed", error_message: error_message)
+
+        unless job.refunded_at
+          CreditLedger.refund!(
+            user: current_user,
+            amount: job.cost_credits,
+            source: job.source_for_refund,
+            idempotency_key: "generation_job:#{job.id}:refund",
+            reference: job,
+            metadata: { error: error_message }
+          )
+          job.update!(refunded_at: Time.current)
+        end
       end
 
       { status: "failed", error: error_message, outputs: job.output_urls, credits: current_user.reload.credits }
     end
 
     def refund_job(job)
-      job.update!(status: "failed", error_message: "Submit failed")
-      return if job.refunded_at
+      job.with_lock do
+        return if job.status == "completed" || job.refunded_at
 
-      CreditLedger.refund!(
-        user: current_user,
-        amount: job.cost_credits,
-        source: job.source_for_refund,
-        idempotency_key: "generation_job:#{job.id}:refund",
-        reference: job,
-        metadata: { error: "submit_failed" }
-      )
-      job.update!(refunded_at: Time.current)
+        job.update!(status: "failed", error_message: "Submit failed")
+        CreditLedger.refund!(
+          user: current_user,
+          amount: job.cost_credits,
+          source: job.source_for_refund,
+          idempotency_key: "generation_job:#{job.id}:refund",
+          reference: job,
+          metadata: { error: "submit_failed" }
+        )
+        job.update!(refunded_at: Time.current)
+      end
     rescue => e
       Rails.logger.error("[Generate] Erro ao reembolsar job #{job.id}: #{e.message}")
     end

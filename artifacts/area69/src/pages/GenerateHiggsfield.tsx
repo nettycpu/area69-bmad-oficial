@@ -51,11 +51,19 @@ export default function GenerateHiggsfield() {
   const [genError, setGenError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const consecutiveErrorsRef = useRef(0);
+  const [costPerImage, setCostPerImage] = useState(COST_PER_IMAGE);
 
   const selectedSoulId =
     trainedModels.find((m) => m.id === selectedModel)?.soulId ?? null;
+  const totalCost = costPerImage * resultImages;
   const canGenerate =
     prompt.trim().length >= 3 && selectedSoulId && !generating;
+
+  useEffect(() => {
+    api.pricing()
+      .then((pricing) => setCostPerImage(pricing.higgsfield_character))
+      .catch(() => {});
+  }, []);
 
   function loadFile(file: File) {
     if (file.size > MAX_REF_FILE_BYTES) {
@@ -542,7 +550,7 @@ export default function GenerateHiggsfield() {
           <button
             onClick={handleGenerate}
             disabled={
-              !canGenerate || COST_PER_IMAGE > state.credits
+              !canGenerate || totalCost > state.credits
             }
             className="w-full bg-[#7C3AED] text-white py-4 min-h-[52px] text-xs font-black uppercase tracking-widest hover:bg-[#6D28D9] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
@@ -552,7 +560,7 @@ export default function GenerateHiggsfield() {
                 {generatingStatus || "Gerando..."}
               </span>
             ) : (
-              <span>Gerar por {COST_PER_IMAGE} créditos</span>
+              <span>Gerar por {totalCost} créditos</span>
             )}
           </button>
 
@@ -656,7 +664,7 @@ export default function GenerateHiggsfield() {
                 <button
                   onClick={handleGenerate}
                   disabled={
-                    !canGenerate || COST_PER_IMAGE > state.credits
+                    !canGenerate || totalCost > state.credits
                   }
                   className="bg-black text-white px-5 py-3 text-xs font-black uppercase tracking-widest hover:bg-[#7C3AED] transition-colors disabled:opacity-30 min-h-[44px]"
                 >

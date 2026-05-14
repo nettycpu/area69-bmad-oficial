@@ -10,10 +10,12 @@ class CreditLedger
     ActiveRecord::Base.transaction do
       existing = CreditTransaction.find_by(idempotency_key: idempotency_key)
       if existing
-        return { transaction: existing, balance: existing.balance_after, duplicate: true }
+        return duplicate_result!(existing, user)
       end
 
       user.lock!
+      existing = CreditTransaction.find_by(idempotency_key: idempotency_key)
+      return duplicate_result!(existing, user) if existing
 
       balance_before = user.credits
       balance_after  = balance_before + amount
@@ -43,10 +45,12 @@ class CreditLedger
     ActiveRecord::Base.transaction do
       existing = CreditTransaction.find_by(idempotency_key: idempotency_key)
       if existing
-        return { transaction: existing, balance: existing.balance_after, duplicate: true }
+        return duplicate_result!(existing, user)
       end
 
       user.lock!
+      existing = CreditTransaction.find_by(idempotency_key: idempotency_key)
+      return duplicate_result!(existing, user) if existing
 
       if user.credits < amount
         raise InsufficientCredits, "Creditos insuficientes: tem #{user.credits}, precisa #{amount}"
@@ -80,10 +84,12 @@ class CreditLedger
     ActiveRecord::Base.transaction do
       existing = CreditTransaction.find_by(idempotency_key: idempotency_key)
       if existing
-        return { transaction: existing, balance: existing.balance_after, duplicate: true }
+        return duplicate_result!(existing, user)
       end
 
       user.lock!
+      existing = CreditTransaction.find_by(idempotency_key: idempotency_key)
+      return duplicate_result!(existing, user) if existing
 
       balance_before = user.credits
       balance_after  = balance_before + amount
@@ -104,5 +110,13 @@ class CreditLedger
 
       { transaction: tx, balance: balance_after, duplicate: false }
     end
+  end
+
+  def self.duplicate_result!(transaction, user)
+    if transaction.user_id != user.id
+      raise DuplicateTransaction, "idempotency_key ja usada por outro usuario"
+    end
+
+    { transaction: transaction, balance: transaction.balance_after, duplicate: true }
   end
 end
