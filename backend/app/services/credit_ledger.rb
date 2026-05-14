@@ -117,6 +117,6 @@ class CreditLedger
       raise DuplicateTransaction, "idempotency_key ja usada por outro usuario"
     end
 
-    { transaction: transaction, balance: transaction.balance_after, duplicate: true }
+    { transaction: transaction, balance: user.reload.credits, duplicate: true }
   end
 end

@@ -126,32 +126,11 @@ export const api = {
   },
   generations: {
     list: () => request<{ generations: ApiGeneration[] }>("/generations"),
-    /** Apenas para uso interno do backend. Nao chamar do frontend. */
-    create: (data: {
-      model_name: string;
-      type: string;
-      prompt: string;
-      url: string;
-      seed?: string;
-      width?: number;
-      height?: number;
-    }) =>
-      request<{ generation: ApiGeneration }>("/generations", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
     delete: (id: string) =>
       request<void>(`/generations/${id}`, { method: "DELETE" }),
   },
   credits: {
     balance: () => request<{ balance: number }>("/credits"),
-    /** APENAS DEV/ADMIN. Requer CREDITS_SECRET no backend. */
-    add: (amount: number, source?: string, secret?: string) =>
-      request<{ balance: number }>("/credits/add", {
-        method: "POST",
-        body: JSON.stringify({ amount, source }),
-        headers: secret ? { "X-Credits-Secret": secret } : {},
-      }),
   },
   generate: {
     image: (data: {

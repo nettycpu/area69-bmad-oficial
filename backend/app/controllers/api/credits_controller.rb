@@ -63,14 +63,9 @@ module Api
       secret = ENV["CREDITS_SECRET"]
 
       if secret.blank?
-        if Rails.env.production?
-          Rails.logger.error("[CREDITS] CREDITS_SECRET nao configurado em production!")
-          render_error("Credit admin endpoint not configured", :service_unavailable)
-          return false
-        else
-          # Development/test: permite sem secret para facilitar debug
-          return true
-        end
+        Rails.logger.error("[CREDITS] CREDITS_SECRET nao configurado")
+        render_error("Credit admin endpoint not configured", :service_unavailable)
+        return false
       end
 
       provided = request.headers["X-Credits-Secret"]

@@ -13,7 +13,7 @@ const PLANS = [
     price: "R$ 0",
     period: "",
     credits: 0,
-    features: ["5 créditos de boas-vindas", "1 modelo de avatar", "Histórico de 7 dias", "Resolução até 720p"],
+    features: ["Sem créditos inclusos", "1 modelo de avatar", "Histórico de 7 dias", "Resolução até 720p"],
   },
   {
     id: "creator",
@@ -36,10 +36,10 @@ const PLANS = [
 ];
 
 const CREDIT_PACKS = [
-  { credits: 50,  price: "R$ 29",  per: "R$ 0,58/crédito", highlight: false },
-  { credits: 150, price: "R$ 79",  per: "R$ 0,53/crédito", highlight: false },
-  { credits: 300, price: "R$ 139", per: "R$ 0,46/crédito", highlight: true  },
-  { credits: 600, price: "R$ 249", per: "R$ 0,42/crédito", highlight: false },
+  { credits: 50,  price: "R$ 29",  per: "R$ 0,58/credito", highlight: false },
+  { credits: 150, price: "R$ 79",  per: "R$ 0,53/credito", highlight: false },
+  { credits: 300, price: "R$ 139", per: "R$ 0,46/credito", highlight: true  },
+  { credits: 600, price: "R$ 249", per: "R$ 0,42/credito", highlight: false },
 ];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -52,7 +52,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function Settings() {
-  const { state, updateProfile, updateCredits, resetAccount } = useStore();
+  const { state, updateProfile, resetAccount } = useStore();
   const { t, lang, setLang } = useI18n();
 
   const [name, setName]   = useState(state.profile.name);
@@ -66,7 +66,6 @@ export default function Settings() {
   const [notifPromo, setNotifPromo] = useState(false);
   const [selectedPack, setSelectedPack] = useState<number | null>(null);
   const [buyStep, setBuyStep] = useState<"idle" | "confirm" | "done">("idle");
-
   // ── Change password state ──
   const [pwOpen, setPwOpen] = useState(false);
   const [pwCurrent, setPwCurrent] = useState("");
@@ -254,7 +253,7 @@ export default function Settings() {
           </div>
         </Section>
 
-        {import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEV_CREDITS === "true" && (
+        {false && (
         <Section title={t("settings.buyCredits")}>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
             {CREDIT_PACKS.map((pack) => {
@@ -298,7 +297,7 @@ export default function Settings() {
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
                       <p className="text-xs font-black uppercase tracking-widest text-black">
-                        {t("settings.creditsSelected", { n: selectedPack })}
+                        {t("settings.creditsSelected", { n: selectedPack ?? 0 })}
                       </p>
                       <p className="text-[11px] text-black/40 font-medium mt-0.5">
                         {CREDIT_PACKS.find(p => p.credits === selectedPack)?.price} · {CREDIT_PACKS.find(p => p.credits === selectedPack)?.per}
@@ -327,8 +326,7 @@ export default function Settings() {
                       <button
                         onClick={async () => {
                           try {
-                            const res = await api.credits.add(selectedPack!);
-                            updateCredits(res.balance);
+                            window.location.href = "/dashboard/billing";
                           } catch (e) {
                             console.error("Falha ao adicionar créditos (dev):", e);
                           }

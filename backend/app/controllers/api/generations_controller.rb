@@ -51,13 +51,8 @@ module Api
       secret = ENV["INTERNAL_SECRET"]
 
       if secret.blank?
-        if Rails.env.production?
-          Rails.logger.error("[INTERNAL] INTERNAL_SECRET nao configurado em production!")
-          return false
-        else
-          # Dev/test: permite sem secret
-          return true
-        end
+        Rails.logger.error("[INTERNAL] INTERNAL_SECRET nao configurado")
+        return false
       end
 
       request.headers["X-Internal-Secret"].present? &&

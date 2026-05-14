@@ -49,10 +49,6 @@ interface StoreContextValue {
   addGeneration: (gen: Generation) => void;
   refreshGenerations: () => Promise<void>;
   deleteGeneration: (id: string) => void;
-  /** APENAS DEV/ADMIN. NAO usar em fluxo normal de geracao.
-   * Faz POST /api/credits/add (requer CREDITS_SECRET no backend).
-   * Prefira updateCredits(balance) vindo da resposta do backend. */
-  devAddCreditsUnsafe: (amount: number) => void;
   /** Fonte central de verdade: atualiza saldo com valor vindo do backend */
   updateCredits: (balance: number) => void;
   updateProfile: (patch: Partial<UserProfile>) => void;
@@ -166,20 +162,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // ── Credits mutations (APENAS DEV/ADMIN) ────────────────────────────────
-  // Fluxo normal de geracao usa updateCredits(balance) com valor do backend
-  const devAddCreditsUnsafe = useCallback((amount: number) => {
-    if (!(import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEV_CREDITS === "true")) {
-      console.warn("[StoreContext] devAddCreditsUnsafe blocked outside DEV mode");
-      return;
-    }
-    const safeAmount = Math.max(0, Math.floor(amount));
-    api.credits
-      .add(safeAmount)
-      .then((res) => setState((prev) => ({ ...prev, credits: res.balance })))
-      .catch(console.error);
-  }, []);
-
+  // Fluxo normal de geracao usa updateCredits(balance) com valor do backend.
   const updateCredits = useCallback((balance: number) => {
     if (typeof balance === "number" && !isNaN(balance)) {
       setState((prev) => ({ ...prev, credits: balance }));
@@ -228,7 +211,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         addGeneration,
         refreshGenerations,
         deleteGeneration,
-        devAddCreditsUnsafe,
         updateCredits,
         updateProfile,
         resetAccount,

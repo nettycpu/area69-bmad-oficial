@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_12_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_14_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -125,7 +125,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_000003) do
   create_table "users", force: :cascade do |t|
     t.text "avatar"
     t.datetime "created_at", null: false
-    t.integer "credits", default: 100, null: false
+    t.integer "credits", default: 0, null: false
     t.string "email", null: false
     t.integer "images_generated", default: 0, null: false
     t.string "name", null: false
@@ -136,6 +136,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_000003) do
     t.integer "videos_generated", default: 0, null: false
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["stripe_customer_id"], name: "index_users_on_stripe_customer_id", unique: true
+    t.check_constraint "credits >= 0", name: "users_credits_nonnegative"
   end
 
   add_foreign_key "avatar_models", "users"

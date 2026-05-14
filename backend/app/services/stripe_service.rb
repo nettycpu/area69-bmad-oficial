@@ -64,6 +64,7 @@ class StripeService
       # Fallback: tentar criar purchase a partir de metadados (webhook atrasado/recriado)
       user_id = session.metadata["user_id"]
       credits = session.metadata["credits"].to_i
+      raise Error, "Pacote de creditos invalido na sessao: #{credits}" unless VALID_CREDIT_PACKS.include?(credits)
       raise Error, "Metadados invalidos — user_id ou credits ausentes" unless user_id.present? && credits > 0
       raise Error, "Compra ja processada (nao encontrada por session_id mas pode ser duplicata)" if CreditPurchase.exists?(stripe_checkout_session_id: session.id)
 
