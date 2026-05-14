@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useStore } from "@/lib/useStore";
@@ -42,10 +42,49 @@ const PACKS = [
 ];
 
 export default function Billing() {
-  const { state } = useStore();
+  const { state, updateCredits } = useStore();
   const { t } = useI18n();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const confirmStarted = useRef(false);
+
+  useEffect(() => {
+    if (confirmStarted.current) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get("checkout");
+    const sessionId = params.get("session_id");
+    if (checkout !== "success" || !sessionId) return;
+
+    confirmStarted.current = true;
+    setLoading("confirming");
+    setError(null);
+    setNotice("Confirmando pagamento...");
+
+    api.checkout
+      .confirmStripe({ session_id: sessionId })
+      .then((res) => {
+        updateCredits(res.balance);
+        if (res.status === "paid") {
+          setNotice(
+            res.duplicate
+              ? "Pagamento ja estava confirmado. Saldo sincronizado."
+              : `${res.credits_added} creditos adicionados. Saldo atualizado.`,
+          );
+        } else {
+          setNotice("Pagamento ainda em processamento. Atualize em alguns instantes.");
+        }
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Erro ao confirmar pagamento");
+        setNotice(null);
+      })
+      .finally(() => {
+        setLoading(null);
+        window.history.replaceState({}, "", "/dashboard/billing");
+      });
+  }, [updateCredits]);
 
   async function handleBuy(credits: number, packId: string) {
     if (loading) return;
@@ -92,6 +131,23 @@ export default function Billing() {
             <button
               onClick={() => setError(null)}
               className="text-red-300 hover:text-red-500 text-xs font-black"
+            >
+              ✕
+            </button>
+          </motion.div>
+        )}
+
+        {notice && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 bg-green-50 border border-green-200 px-4 py-3 flex items-center gap-2 max-w-lg mx-auto"
+          >
+            <span className="text-green-600 text-sm">✓</span>
+            <p className="text-xs text-green-700 font-medium flex-1">{notice}</p>
+            <button
+              onClick={() => setNotice(null)}
+              className="text-green-400 hover:text-green-600 text-xs font-black"
             >
               ✕
             </button>
@@ -173,6 +229,8 @@ export default function Billing() {
                     <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     {t("billing.buying")}
                   </span>
+                ) : loading === "confirming" ? (
+                  "Confirmando..."
                 ) : (
                   t("billing.buy")
                 )}

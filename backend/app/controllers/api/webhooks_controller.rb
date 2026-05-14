@@ -16,8 +16,12 @@ module Api
       event = Stripe::Webhook.construct_event(payload, sig_header, secret)
 
       case event.type
-      when "checkout.session.completed"
+      when "checkout.session.completed", "checkout.session.async_payment_succeeded"
         session = event.data.object
+        unless session.payment_status == "paid"
+          Rails.logger.info("[StripeWebhook] Sessao ainda nao paga: #{session.id} payment_status=#{session.payment_status}")
+          head :ok and return
+        end
         result  = StripeService.new.handle_checkout_completed(session)
         Rails.logger.info("[StripeWebhook] Processado: #{result}")
 

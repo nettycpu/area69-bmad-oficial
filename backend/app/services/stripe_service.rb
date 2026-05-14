@@ -54,6 +54,10 @@ class StripeService
   # ── Processar Webhook checkout.session.completed ──────────────────────────
 
   def handle_checkout_completed(session)
+    unless session.payment_status == "paid"
+      raise Error, "Sessao #{session.id} ainda nao esta paga (payment_status=#{session.payment_status})"
+    end
+
     purchase = CreditPurchase.find_by(stripe_checkout_session_id: session.id)
 
     unless purchase

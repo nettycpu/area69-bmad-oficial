@@ -35,7 +35,8 @@ Rails.application.routes.draw do
     post "generate/higgsfield",         to: "api/generate#create_higgsfield"
     get  "generate/higgsfield/:id/status", to: "api/generate#higgsfield_status"
 
-    post "checkout/stripe", to: "api/checkout#create"
+    post "checkout/stripe",         to: "api/checkout#create"
+    post "checkout/stripe/confirm", to: "api/checkout#confirm"
     post "webhooks/stripe", to: "api/webhooks#stripe"
   end
 

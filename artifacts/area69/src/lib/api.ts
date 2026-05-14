@@ -222,6 +222,17 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    confirmStripe: (data: { session_id: string }) =>
+      request<{
+        status: string;
+        credits_added: number;
+        balance: number;
+        duplicate?: boolean;
+        payment_status?: string;
+      }>("/checkout/stripe/confirm", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
   },
   pricing: () =>
     request<{
