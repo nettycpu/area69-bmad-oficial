@@ -12,7 +12,7 @@ const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_ATTEMPTS = 60;
 const MAX_CONSECUTIVE_ERRORS = 5;
 
-export default function GenerateHiggsfield() {
+export default function GenerateAREA69() {
   const { state, updateCredits, refreshGenerations } = useStore();
   const { t } = useI18n();
   const [location] = useLocation();
@@ -213,7 +213,7 @@ export default function GenerateHiggsfield() {
         setGenError("Serviço de geração temporariamente indisponível. Tente novamente depois.");
       }
       // Mensagem ja amigavel do backend — mostrar direto
-      else if (msg.includes("Higgsfield") || msg.includes("Modelo") || msg.includes("provedor") || msg.includes("indispon")) {
+      else if (msg.includes("AREA69") || msg.includes("Modelo") || msg.includes("provedor") || msg.includes("indispon")) {
         setGenError(msg);
       }
       // Erro de provedor (insufficient, saldo)
@@ -229,7 +229,7 @@ export default function GenerateHiggsfield() {
 
   return (
     <DashboardLayout
-      title="Soul 2.0 Character"
+      title="AREA69 Character Studio"
       subtitle="Geração por IA com seu modelo treinado"
     >
       <div className="flex flex-col xl:flex-row gap-6 h-full">
@@ -240,10 +240,10 @@ export default function GenerateHiggsfield() {
             <span className="text-[#7C3AED] text-lg">⚡</span>
             <div>
               <p className="text-xs font-black uppercase tracking-widest text-[#7C3AED] leading-none">
-                Soul 2.0 Character
+                AREA69 Character Studio
               </p>
               <p className="text-[11px] text-black/40 font-medium mt-0.5">
-                Higgsfield Soul Character · Character ID
+                Modelo treinado AREA69 · ID privado
                 {selectedSoulId && (
                   <span className="ml-1 text-[#7C3AED]/60">
                     · {selectedSoulId.slice(0, 8)}...
@@ -261,14 +261,14 @@ export default function GenerateHiggsfield() {
                   Modelo Treinado
                 </p>
                 <p className="text-[11px] text-[#7C3AED] font-bold mt-0.5 uppercase tracking-wide">
-                  Obrigatório — usa seu Character ID
+                  Obrigatório para usar seu modelo
                 </p>
               </div>
             </div>
             {trainedModels.length === 0 ? (
               <div className="border border-dashed border-black/10 p-5 text-center">
                 <p className="text-[11px] font-medium text-black/30 mb-2">
-                  Nenhum modelo com Soul ID encontrado
+                  Nenhum modelo treinado encontrado
                 </p>
                 <p className="text-[10px] text-black/20 font-medium">
                   Treine um modelo em Dashboard → Modelos para desbloquear
@@ -304,7 +304,7 @@ export default function GenerateHiggsfield() {
                         {m.name}
                       </p>
                       <p className="text-[10px] text-black/40 font-medium mt-0.5 truncate">
-                        Char ID: {m.soulId?.slice(0, 12)}... · {m.imagesGenerated}{" "}
+                        ID privado: {m.soulId?.slice(0, 12)}... · {m.imagesGenerated}{" "}
                         imgs
                       </p>
                     </div>
@@ -487,11 +487,11 @@ export default function GenerateHiggsfield() {
             </div>
           </div>
 
-          {/* Character Strength */}
+          {/* Fidelidade ao modelo */}
           <div className="bg-white border border-black/8 p-5">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-black uppercase tracking-widest text-black/40">
-                Character Strength
+                Fidelidade ao modelo
               </p>
               <span className="text-xs font-black text-[#7C3AED] tabular-nums">
                 {characterStrength.toFixed(1)}
@@ -508,11 +508,11 @@ export default function GenerateHiggsfield() {
             />
             <div className="flex justify-between text-[10px] text-black/25 font-medium mt-1">
               <span>0 (flexível)</span>
-              <span>1 (fiel ao character)</span>
+              <span>1 (fiel ao modelo)</span>
             </div>
           </div>
 
-          {/* Result Images & Enhance Prompt */}
+          {/* Result Images & Aprimorar prompt */}
           <div className="bg-white border border-black/8 p-5">
             <div className="flex gap-3">
               <div className="flex-1">
@@ -530,7 +530,7 @@ export default function GenerateHiggsfield() {
               </div>
               <div className="flex-1 flex flex-col justify-end">
                 <p className="text-xs font-black uppercase tracking-widest text-black/40 mb-2">
-                  Enhance Prompt
+                  Aprimorar prompt
                 </p>
                 <button
                   onClick={() => setEnhancePrompt(!enhancePrompt)}
@@ -566,7 +566,7 @@ export default function GenerateHiggsfield() {
 
           {!selectedSoulId && !generating && trainedModels.length > 0 && (
             <p className="text-[11px] text-[#7C3AED] font-bold text-center -mt-2 uppercase tracking-wide">
-              Selecione um modelo com Character ID para continuar
+              Selecione um modelo treinado para continuar
             </p>
           )}
 
@@ -619,7 +619,7 @@ export default function GenerateHiggsfield() {
                 </p>
               </div>
               <div className="text-[11px] text-black/20 font-medium border border-black/8 px-4 py-2">
-                Higgsfield AI · Soul 2.0 Character
+                AREA69 Character Studio
                 {selectedSoulId && (
                   <span> · {selectedSoulId.slice(0, 8)}...</span>
                 )}
@@ -640,7 +640,7 @@ export default function GenerateHiggsfield() {
                   </p>
                 </div>
                 <span className="text-[10px] font-black text-black/20 uppercase tracking-widest flex-shrink-0">
-                  Soul 2.0
+                  AREA69 Character
                 </span>
               </div>
               <div className="aspect-square bg-black/5 animate-pulse w-full max-w-md rounded-sm" />

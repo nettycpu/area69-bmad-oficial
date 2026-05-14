@@ -56,7 +56,7 @@ class HiggsfieldService
       end
       Rails.logger.info("[Higgsfield] Character validated: id=#{character_id[0..20]}... status=#{ref[:status]}")
     rescue APIError => e
-      raise APIError.new("Character nao encontrado na Higgsfield (character_id=#{character_id[0..12]}...). Recrie o modelo.", e.status_code)
+      raise APIError.new("Modelo treinado nao encontrado. Recrie o modelo.", e.status_code)
     end
 
     payload = {
@@ -123,7 +123,7 @@ class HiggsfieldService
       error:   data["error"]
     }
   rescue JSON::ParserError
-    raise APIError.new("Resposta malformada da Higgsfield no status")
+    raise APIError.new("Resposta malformada do servico de geracao no status")
   end
 
   # ───────────────────────────── Treino ──────────────────────────────────
@@ -141,7 +141,7 @@ class HiggsfieldService
     body, status = post("/v1/custom-references", payload)
 
     unless status == 200 || status == 201
-      raise APIError.new(body["error"] || body["message"] || "Higgsfield training failed", status)
+      raise APIError.new(body["error"] || body["message"] || "Falha ao treinar modelo AREA69", status)
     end
 
     # A API retorna "id" como identificador principal do custom-reference,
@@ -155,7 +155,7 @@ class HiggsfieldService
       raw_body:     body
     }
   rescue JSON::ParserError
-    raise APIError.new("Resposta malformada da Higgsfield no treino")
+    raise APIError.new("Resposta malformada do servico de treinamento")
   end
 
   # Verifica status de um job de TREINO
@@ -200,7 +200,7 @@ class HiggsfieldService
     end
     raise
   rescue JSON::ParserError
-    raise APIError.new("Resposta malformada da Higgsfield no status de treino")
+    raise APIError.new("Resposta malformada do servico de treinamento no status")
   end
 
   private
@@ -256,10 +256,10 @@ class HiggsfieldService
 
     resp = http.request(req)
     Rails.logger.info("Higgsfield Response: #{resp.code} - #{resp.body.truncate(500)}")
-    raise APIError.new("Higgsfield API Error: #{resp.body}", resp.code) unless resp.is_a?(Net::HTTPSuccess)
+    raise APIError.new("Servico AREA69 temporariamente indisponivel", resp.code) unless resp.is_a?(Net::HTTPSuccess)
     [JSON.parse(resp.body), resp.code.to_i]
   rescue Net::ReadTimeout
-    raise TimeoutError, "Higgsfield API timeout apos #{read_timeout}s (#{path})"
+    raise TimeoutError, "Servico AREA69 demorou mais que o esperado"
   end
 
   # Como post, mas NAO levanta excecao em erro HTTP — retorna body+status
@@ -275,9 +275,9 @@ class HiggsfieldService
     resp = http.request(req)
     [JSON.parse(resp.body), resp.code.to_i]
   rescue Net::ReadTimeout
-    raise TimeoutError, "Higgsfield API timeout apos #{read_timeout}s (#{path})"
+    raise TimeoutError, "Servico AREA69 demorou mais que o esperado"
   rescue JSON::ParserError
-    [{ "error" => "Resposta malformada da Higgsfield", "raw" => resp&.body.to_s }, resp&.code.to_i]
+    [{ "error" => "Resposta malformada do servico de geracao", "raw" => resp&.body.to_s }, resp&.code.to_i]
   end
 
   def get(path, read_timeout: 30)
@@ -289,9 +289,9 @@ class HiggsfieldService
 
     resp = http.request(req)
     Rails.logger.info("Higgsfield Response: #{resp.code} - #{resp.body}")
-    raise APIError.new("Higgsfield API Error: #{resp.body}", resp.code) unless resp.is_a?(Net::HTTPSuccess)
+    raise APIError.new("Servico AREA69 temporariamente indisponivel", resp.code) unless resp.is_a?(Net::HTTPSuccess)
     [JSON.parse(resp.body), resp.code.to_i]
   rescue Net::ReadTimeout
-    raise TimeoutError, "Higgsfield API timeout apos #{read_timeout}s (#{path})"
+    raise TimeoutError, "Servico AREA69 demorou mais que o esperado"
   end
 end

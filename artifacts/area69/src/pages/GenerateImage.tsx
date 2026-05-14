@@ -38,7 +38,7 @@ export default function GenerateImage() {
   const { state, updateCredits, refreshGenerations } = useStore();
   const { t } = useI18n();
 
-  // Qwen/WaveSpeed nao usa Soul ID — sem seletor de modelo treinado
+  // Modo de imagem por referencia — sem seletor de modelo treinado
   const [prompt, setPrompt] = useState("");
   const [referenceImage, setReferenceImage] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState("1:1");
@@ -214,27 +214,27 @@ export default function GenerateImage() {
           <div className="bg-[#C0001A]/6 border border-[#C0001A]/20 px-4 py-3 flex items-center gap-3">
             <span className="text-[#C0001A] text-lg">✦</span>
             <div>
-              <p className="text-xs font-black uppercase tracking-widest text-[#C0001A] leading-none">Qwen Image 2.0 Pro</p>
-              <p className="text-[11px] text-black/40 font-medium mt-0.5">WaveSpeed AI · image-to-image</p>
+              <p className="text-xs font-black uppercase tracking-widest text-[#C0001A] leading-none">AREA69 Image Studio</p>
+              <p className="text-[11px] text-black/40 font-medium mt-0.5">Edição guiada por imagem</p>
             </div>
           </div>
 
 
           <div className="bg-white border border-black/8 p-4">
             <p className="text-[11px] font-black uppercase tracking-widest text-black/40 mb-1">
-              Qwen Image 2.0 Pro não usa Soul ID
+              AREA69 Image Studio usa imagem de referência
             </p>
             <p className="text-[11px] text-black/25 font-medium">
-              Para usar seu modelo treinado (Natty), vá em <a href="/dashboard/higgsfield" className="text-[#C0001A] font-black hover:underline">Soul 2.0</a>
+              Para usar um modelo treinado da AREA69, vá em <a href="/dashboard/higgsfield" className="text-[#C0001A] font-black hover:underline">AREA69 Character</a>
             </p>
           </div>
 
-          {/* Reference image — REQUIRED for Qwen */}
+          {/* Reference image — REQUIRED */}
           <div className="bg-white border border-black/8 p-5">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-widest text-black/40">{t("generateImage.referenceImage")}</p>
-                <p className="text-[11px] text-[#C0001A] font-bold mt-0.5 uppercase tracking-wide">Obrigatória para Qwen</p>
+                <p className="text-[11px] text-[#C0001A] font-bold mt-0.5 uppercase tracking-wide">Obrigatória para este modo</p>
               </div>
               {referenceImage && (
                 <button onClick={() => setReferenceImage(null)} className="text-[11px] font-black uppercase tracking-widest text-black/30 hover:text-[#C0001A] transition-colors">
@@ -399,7 +399,7 @@ export default function GenerateImage() {
                 <p className="text-sm text-black/20 font-medium mt-1 max-w-sm">{t("generateImage.idleDesc")}</p>
               </div>
               <div className="text-[11px] text-black/20 font-medium border border-black/8 px-4 py-2">
-                Qwen Image 2.0 Pro · Até 2K
+                AREA69 Image Studio · Até 2K
               </div>
             </motion.div>
           )}
@@ -412,7 +412,7 @@ export default function GenerateImage() {
                   <p className="text-xs font-black uppercase tracking-widest text-black">{generatingStatus || "Gerando..."}</p>
                   <p className="text-[11px] text-black/40 font-medium mt-0.5 italic truncate">"{lastPrompt}"</p>
                 </div>
-                <span className="text-[10px] font-black text-black/20 uppercase tracking-widest flex-shrink-0">Qwen 2.0 Pro</span>
+                <span className="text-[10px] font-black text-black/20 uppercase tracking-widest flex-shrink-0">AREA69 Image</span>
               </div>
               <div className={`${aspectStyle(aspectRatio)} bg-black/5 animate-pulse w-full max-w-md rounded-sm`} />
             </div>

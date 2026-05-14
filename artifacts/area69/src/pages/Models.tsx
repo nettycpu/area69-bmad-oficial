@@ -18,7 +18,7 @@ function ModelCard({ model, onDelete, onStatusUpdate }: {
   const [confirm, setConfirm] = useState(false);
   const { t, lang } = useI18n();
 
-  // Poll Higgsfield status for training models that have a real backend ID
+  // Poll backend status for training models that have a real backend ID
   useEffect(() => {
     if (model.status !== "training") return;
     const numericId = Number(model.id);
@@ -76,7 +76,7 @@ function ModelCard({ model, onDelete, onStatusUpdate }: {
             <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-3 p-4">
               <div className="w-10 h-10 border-4 border-white/20 border-t-white rounded-full animate-spin" />
               <p className="text-white text-xs font-black uppercase tracking-widest">{t("models.status.inTraining")}</p>
-              <p className="text-white/50 text-[11px] font-medium text-center">Soul ID · Higgsfield</p>
+              <p className="text-white/50 text-[11px] font-medium text-center">Treinamento AREA69</p>
               <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden">
                 <div className="h-full bg-[#C0001A] animate-pulse w-2/3" />
               </div>
@@ -98,7 +98,7 @@ function ModelCard({ model, onDelete, onStatusUpdate }: {
         <p className="text-sm font-black uppercase tracking-tight text-black leading-tight">{model.name}</p>
         {model.soulId && (
           <p className="text-[11px] text-[#C0001A] font-bold mt-0.5 truncate" title={model.soulId}>
-            Soul ID: {model.soulId.slice(0, 20)}…
+            Character ID: {model.soulId.slice(0, 20)}…
           </p>
         )}
         <div className="flex gap-3 mt-1">
@@ -271,7 +271,7 @@ function NewModelModal({ onClose, onCreated, availableCredits, trainingCost, onC
             <p className="text-sm font-black uppercase tracking-tight text-black">{t("models.modal.title")}</p>
             <p className="text-[10px] text-black/40 font-medium mt-0.5">
               {t("models.modal.step", { n: stepIndex + 1 })}
-              <span className="ml-2 text-[#C0001A]">Soul ID · Higgsfield AI</span>
+              <span className="ml-2 text-[#C0001A]">Treinamento AREA69</span>
             </p>
           </div>
           <button onClick={onClose} disabled={loading} className="text-black/30 hover:text-black transition-colors text-lg leading-none disabled:opacity-30">✕</button>
@@ -377,7 +377,7 @@ function NewModelModal({ onClose, onCreated, availableCredits, trainingCost, onC
                 <p className="text-[10px] font-black uppercase tracking-widest text-black/40 mb-1">{t("models.modal.step3Label")}</p>
                 <h2 className="text-xl font-black uppercase tracking-tighter text-black mb-4">{t("models.modal.step3Title")}</h2>
 
-                {/* Higgsfield badge */}
+                {/* AREA69 training badge */}
                 <div className="bg-black text-white px-4 py-2.5 mb-5 flex items-center gap-3">
                   <div className="w-5 h-5 flex-shrink-0">
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-[#C0001A]">
@@ -385,8 +385,8 @@ function NewModelModal({ onClose, onCreated, availableCredits, trainingCost, onC
                     </svg>
                   </div>
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-white/60">Tecnologia de treinamento</p>
-                    <p className="text-[11px] font-black uppercase tracking-widest">Higgsfield Soul ID</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-white/60">Tecnologia AREA69</p>
+                    <p className="text-[11px] font-black uppercase tracking-widest">AREA69 Character ID</p>
                   </div>
                 </div>
 

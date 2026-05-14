@@ -229,7 +229,7 @@ module Api
 
       if status_code != 200
         refund_job(job)
-        render json: { error: body["message"] || body["error"] || "WaveSpeed API error", credits: current_user.reload.credits }, status: :bad_gateway
+        render json: { error: provider_friendly_error(body), credits: current_user.reload.credits }, status: :bad_gateway
         return
       end
 
@@ -396,7 +396,7 @@ module Api
       credits = current_user.reload.credits
       msg = e.message.to_s
       if msg.downcase.include?("not found") || msg.downcase.include?("character nao encontrado")
-        render json: { error: "Character ID nao encontrado na Higgsfield. Recrie o modelo.", credits: credits }, status: :bad_gateway
+        render json: { error: "Modelo treinado nao encontrado. Recrie o modelo.", credits: credits }, status: :bad_gateway
       else
         render json: { error: msg, credits: credits }, status: :bad_gateway
       end
@@ -737,7 +737,7 @@ module Api
       if raw_down.include?("insufficient credits") || raw_down.include?("top up") || raw_down.include?("insufficient balance")
         "Servico de imagem temporariamente indisponivel: saldo do provedor insuficiente."
       else
-        body["message"] || body["error"] || "WaveSpeed API error"
+        "Servico de geracao temporariamente indisponivel"
       end
     end
 

@@ -206,7 +206,7 @@ export default function Billing() {
                 </li>
                 <li className="flex items-start gap-1.5">
                   <span className="text-[#C0001A] text-[10px] mt-0.5 flex-shrink-0">✓</span>
-                  Soul ID training
+                  Treinamento de modelo AREA69
                 </li>
                 <li className="flex items-start gap-1.5">
                   <span className="text-[#C0001A] text-[10px] mt-0.5 flex-shrink-0">✓</span>

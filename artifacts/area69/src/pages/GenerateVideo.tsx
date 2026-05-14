@@ -209,8 +209,8 @@ export default function GenerateVideo() {
           <div className="bg-[#C0001A]/6 border border-[#C0001A]/20 px-4 py-3 flex items-center gap-3">
             <span className="text-[#C0001A] text-lg">▷</span>
             <div>
-              <p className="text-xs font-black uppercase tracking-widest text-[#C0001A] leading-none">Seedance 1.5 Pro</p>
-              <p className="text-[11px] text-black/40 font-medium mt-0.5">WaveSpeed AI · image-to-video · ByteDance</p>
+              <p className="text-xs font-black uppercase tracking-widest text-[#C0001A] leading-none">AREA69 Motion Studio</p>
+              <p className="text-[11px] text-black/40 font-medium mt-0.5">Animação guiada por imagem</p>
             </div>
           </div>
 
@@ -219,7 +219,7 @@ export default function GenerateVideo() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-widest text-black/40">{t("generateVideo.referenceImage")}</p>
-                <p className="text-[11px] text-[#C0001A] font-bold mt-0.5 uppercase tracking-wide">Obrigatória para Seedance</p>
+                <p className="text-[11px] text-[#C0001A] font-bold mt-0.5 uppercase tracking-wide">Obrigatória para este modo</p>
               </div>
               {referenceImage && (
                 <button onClick={() => setReferenceImage(null)} className="text-[11px] font-black uppercase tracking-widest text-black/30 hover:text-[#C0001A] transition-colors">
@@ -417,7 +417,7 @@ export default function GenerateVideo() {
                 <p className="text-sm text-black/20 font-medium mt-1 max-w-sm">{t("generateVideo.idleDesc")}</p>
               </div>
               <div className="text-[11px] text-black/20 font-medium border border-black/8 px-4 py-2">
-                Seedance 1.5 Pro · 4–12s · Até 1080p
+                AREA69 Motion Studio · 4-12s · Até 1080p
               </div>
             </motion.div>
           )}
@@ -430,7 +430,7 @@ export default function GenerateVideo() {
                   <p className="text-xs font-black uppercase tracking-widest text-black">{generatingStatus || "Gerando..."}</p>
                   <p className="text-[11px] text-black/40 font-medium mt-0.5 italic truncate">"{lastPrompt}"</p>
                 </div>
-                <span className="text-[10px] font-black text-black/20 uppercase tracking-widest flex-shrink-0">Seedance 1.5 Pro</span>
+                <span className="text-[10px] font-black text-black/20 uppercase tracking-widest flex-shrink-0">AREA69 Motion Studio</span>
               </div>
               <div className={`${aspectStyle(aspectRatio)} bg-black/5 animate-pulse w-full rounded-sm`} />
             </motion.div>
