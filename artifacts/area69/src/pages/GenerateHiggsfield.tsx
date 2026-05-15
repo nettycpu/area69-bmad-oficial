@@ -12,6 +12,8 @@ const COST_PER_IMAGE = 5;
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_ATTEMPTS = 60;
 const MAX_CONSECUTIVE_ERRORS = 5;
+const REALISTIC_SOUL_STYLE_ID = "1cb4b936-77bf-4f9a-9039-f3d349a4cdbe";
+const REALISTIC_SOUL_STYLE_STRENGTH = 1;
 
 export default function GenerateAREA69() {
   const { state, updateCredits, refreshGenerations } = useStore();
@@ -199,6 +201,8 @@ export default function GenerateAREA69() {
         seed: seed || undefined,
         aspect_ratio: aspectRatio,
         resolution,
+        style_id: REALISTIC_SOUL_STYLE_ID,
+        style_strength: REALISTIC_SOUL_STYLE_STRENGTH,
         character_strength: characterStrength,
         result_images: resultImages,
         enhance_prompt: enhancePrompt,
@@ -330,6 +334,25 @@ export default function GenerateAREA69() {
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="bg-white border border-black/8 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-black uppercase tracking-widest text-black/40">
+                Soul Style
+              </p>
+              <span className="text-[10px] font-bold text-[#7C3AED] uppercase tracking-widest border border-[#7C3AED]/20 px-2 py-0.5">
+                Padrao
+              </span>
+            </div>
+            <div className="border-2 border-[#7C3AED] bg-[#7C3AED]/5 px-4 py-3">
+              <p className="text-xs font-black uppercase tracking-tight text-black leading-none">
+                Realistic
+              </p>
+              <p className="text-[10px] text-black/40 font-medium mt-1">
+                SOUL STYLE - REALISTIC
+              </p>
+            </div>
           </div>
 
           {/* Reference images — OPTIONAL */}

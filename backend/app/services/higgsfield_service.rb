@@ -6,6 +6,7 @@ require "openssl"
 class HiggsfieldService
   HIGGSFIELD_BASE = "https://platform.higgsfield.ai"
   SOUL_CHARACTER_MODEL = "/higgsfield-ai/soul/character"
+  REALISTIC_SOUL_STYLE_ID = "1cb4b936-77bf-4f9a-9039-f3d349a4cdbe".freeze
 
   class Error < StandardError; end
 
@@ -47,6 +48,7 @@ class HiggsfieldService
   # Usa o endpoint oficial: POST /higgsfield-ai/soul/character
   def generate_image(soul_id:, prompt:, **options)
     character_id = soul_id.to_s
+    ref = nil
 
     # Antes de gerar, valida se o custom reference (character) existe e está pronto
     begin
@@ -59,12 +61,17 @@ class HiggsfieldService
       raise APIError.new("Modelo treinado nao encontrado. Recrie o modelo.", e.status_code)
     end
 
+    reference_name = options[:custom_reference_name].presence || ref[:name].presence || "AREA69 Character"
     payload = {
       prompt: prompt,
       aspect_ratio: options[:aspect_ratio] || "9:16",
       resolution: options[:resolution] || "720p",
-      character_id: character_id,
-      character_strength: options[:character_strength] || 1,
+      custom_reference: {
+        id: character_id,
+        name: reference_name
+      },
+      style_id: options[:style_id].presence || REALISTIC_SOUL_STYLE_ID,
+      style_strength: options[:style_strength] || 1,
       result_images: options[:result_images] || 1,
       enhance_prompt: options.key?(:enhance_prompt) ? options[:enhance_prompt] : true
     }
@@ -72,16 +79,14 @@ class HiggsfieldService
     # Imagem de referência opcional — enviar URL pública
     if options[:images].present?
       first_image = options[:images].is_a?(Array) ? options[:images].first : options[:images]
-      payload[:image_reference_url] = first_image
+      payload[:image_reference] = first_image
     end
 
     if options[:seed].present? && options[:seed].to_s != "-1"
       payload[:seed] = options[:seed].to_i
     end
 
-    # Campos opcionais de estilo (se o playground da API os aceitar)
     payload[:soul_style] = options[:soul_style] if options[:soul_style].present?
-    payload[:style_strength] = options[:style_strength] if options[:style_strength].present?
 
     payload_keys = payload.keys.inspect
     Rails.logger.info("[Higgsfield] POST model=#{SOUL_CHARACTER_MODEL} character=#{character_id[0..12]}... keys=#{payload_keys} prompt=#{prompt.truncate(120).inspect}")

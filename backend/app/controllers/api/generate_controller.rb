@@ -19,6 +19,8 @@ module Api
     LOCKED_IMAGE_RESOLUTIONS = Pricing::QWEN_IMAGE_LOCKED_RESOLUTIONS.freeze
     HIGGSFIELD_ASPECT_RATIOS = %w[1:1 3:4 4:5 9:16 16:9].freeze
     HIGGSFIELD_RESOLUTIONS = %w[720p 1080p].freeze
+    REALISTIC_SOUL_STYLE_ID = "1cb4b936-77bf-4f9a-9039-f3d349a4cdbe".freeze
+    REALISTIC_SOUL_STYLE_STRENGTH = 1
     MAX_PROMPT_LENGTH = 800
     MIN_PROMPT_LENGTH = 3
     MAX_SEED = 2_147_483_647
@@ -404,6 +406,9 @@ module Api
         character_strength: character_strength,
         result_images: result_images,
         enhance_prompt: enhance_prompt,
+        style_id: REALISTIC_SOUL_STYLE_ID,
+        style_strength: REALISTIC_SOUL_STYLE_STRENGTH,
+        custom_reference_name: model.name,
         images: images,
         seed: seed
       }

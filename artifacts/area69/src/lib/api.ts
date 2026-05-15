@@ -183,6 +183,8 @@ export const api = {
       seed?: string;
       aspect_ratio?: string;
       resolution?: string;
+      style_id?: string;
+      style_strength?: number;
       character_strength?: number;
       result_images?: number;
       enhance_prompt?: boolean;
