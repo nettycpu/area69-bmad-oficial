@@ -66,22 +66,20 @@ class HiggsfieldService
       prompt: prompt,
       aspect_ratio: options[:aspect_ratio] || "9:16",
       resolution: options[:resolution] || "720p",
-      custom_reference: {
-        id: character_id,
-        name: reference_name
-      },
+      custom_reference_id: character_id,
+      custom_reference_strength: options[:custom_reference_strength] || options[:character_strength] || 1,
       style_id: options[:style_id].presence || REALISTIC_SOUL_STYLE_ID,
       style_strength: options[:style_strength] || 1,
-      result_images: options[:result_images] || 1,
+      batch_size: options[:result_images] || options[:batch_size] || 1,
       enhance_prompt: options.key?(:enhance_prompt) ? options[:enhance_prompt] : true
     }
 
-    raise APIError, "custom_reference ausente" if payload.dig(:custom_reference, :id).blank?
+    raise APIError, "custom_reference_id ausente" if payload[:custom_reference_id].blank?
 
     # Imagem de referência opcional — enviar URL pública
     if options[:images].present?
       first_image = options[:images].is_a?(Array) ? options[:images].first : options[:images]
-      payload[:image_reference] = first_image
+      payload[:image_reference_url] = first_image
     end
 
     if options[:seed].present? && options[:seed].to_s != "-1"
@@ -92,10 +90,12 @@ class HiggsfieldService
 
     Rails.logger.info(
       "[Higgsfield] Soul Character payload " \
-      "custom_reference.id=#{payload.dig(:custom_reference, :id).to_s[0..12]}... " \
-      "custom_reference.name=#{payload.dig(:custom_reference, :name).inspect} " \
+      "custom_reference_id=#{payload[:custom_reference_id].to_s[0..12]}... " \
+      "custom_reference_name=#{reference_name.inspect} " \
+      "custom_reference_strength=#{payload[:custom_reference_strength]} " \
       "style_id=#{payload[:style_id]} " \
-      "image_reference=#{payload.key?(:image_reference) ? "present" : "absent"} " \
+      "batch_size=#{payload[:batch_size]} " \
+      "image_reference_url=#{payload.key?(:image_reference_url) ? "present" : "absent"} " \
       "prompt=#{payload[:prompt].to_s.truncate(160).inspect}"
     )
 

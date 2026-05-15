@@ -416,6 +416,7 @@ module Api
         enhance_prompt: enhance_prompt,
         style_id: REALISTIC_SOUL_STYLE_ID,
         style_strength: REALISTIC_SOUL_STYLE_STRENGTH,
+        custom_reference_strength: 1,
         custom_reference_name: model.name,
         images: images,
         seed: seed
