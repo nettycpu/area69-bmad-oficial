@@ -45,13 +45,13 @@ jobs:
         env:
           RAILS_ENV: test
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/area69_test
-        run: bin/rails db:test:prepare test
+        run: bundle exec rails db:test:prepare test
 
       - name: Run Brakeman
-        run: bin/brakeman -q
+        run: bundle exec brakeman -q
 
       - name: Run Bundler Audit
-        run: bin/bundler-audit check
+        run: bundle exec bundler-audit check
 
   frontend:
     name: Frontend checks
