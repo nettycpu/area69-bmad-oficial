@@ -359,12 +359,7 @@ module Api
       validate_seed!(seed)
 
       model = current_user.avatar_models.find_by!(id: model_id)
-      return render_error("Modelo nao esta pronto — Character ID nao encontrado. Conclua o treinamento primeiro.") unless model.soul_id.present? && model.status == "ready"
-
-      requested_reference = params[:custom_reference].is_a?(ActionController::Parameters) ? params[:custom_reference].permit(:id, :name).to_h : {}
-      if requested_reference["id"].present? && requested_reference["id"].to_s != model.soul_id.to_s
-        return render_error("Reference ID nao pertence ao modelo selecionado")
-      end
+      return render_error("Modelo nao esta pronto — Character ID nao encontrado. Conclua o treinamento primeiro.") unless model.soul_id.present? && %w[ready completed pronto].include?(model.status)
 
       return render_error("Prompt e obrigatorio") if prompt.blank?
       return render_error("Prompt deve ter pelo menos #{MIN_PROMPT_LENGTH} caracteres") if prompt.length < MIN_PROMPT_LENGTH
@@ -377,6 +372,7 @@ module Api
         public_urls = upload_images_to_r2(model, images)
         images = public_urls
       end
+      final_prompt = higgsfield_identity_prompt(prompt)
 
       job = nil
       ActiveRecord::Base.transaction do
@@ -392,6 +388,13 @@ module Api
           resolution: resolution,
           seed: seed,
           avatar_model: model,
+          metadata: {
+            "user_prompt" => prompt,
+            "provider_prompt" => final_prompt,
+            "provider_reference_id" => model.soul_id,
+            "provider_custom_reference_name" => model.name,
+            "provider_style_id" => REALISTIC_SOUL_STYLE_ID
+          },
           idempotency_key: "gen:higgsfield:#{SecureRandom.uuid}"
         )
 
@@ -419,7 +422,7 @@ module Api
       }
 
       service = HiggsfieldService.new
-      result  = service.generate_image(soul_id: model.soul_id, prompt: prompt, **options)
+      result  = service.generate_image(soul_id: model.soul_id, prompt: final_prompt, **options)
 
       provider_id = result[:request_id]
       job.update!(provider_request_id: provider_id, status: "submitted")
@@ -504,6 +507,31 @@ module Api
     end
 
     # ─────────────────────────── Payload normalization ──────────────────────
+
+    def higgsfield_identity_prompt(user_prompt)
+      identity_prefix = if higgsfield_prompt_allows_hidden_face?(user_prompt)
+                          "Use the selected trained custom reference as the same person."
+                        else
+                          "Use the selected trained custom reference as the same person. Preserve the same face, facial structure, skin tone, hair, and identity. The face must be visible and recognizable unless the user explicitly asks for back view or no face."
+                        end
+
+      "#{identity_prefix}\n\nUser prompt: #{user_prompt}"
+    end
+
+    def higgsfield_prompt_allows_hidden_face?(user_prompt)
+      normalized = user_prompt.to_s.downcase
+      [
+        "de costas",
+        "sem rosto",
+        "close no corpo",
+        "corpo",
+        "back view",
+        "from behind",
+        "no face",
+        "body close-up",
+        "body closeup"
+      ].any? { |term| normalized.include?(term) }
+    end
 
     def normalize_wavespeed_payload(body)
       WavespeedPayload.normalize(body)

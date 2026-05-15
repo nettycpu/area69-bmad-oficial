@@ -185,10 +185,6 @@ export const api = {
       resolution?: string;
       style_id?: string;
       style_strength?: number;
-      custom_reference?: {
-        id: string;
-        name: string;
-      };
       character_strength?: number;
       result_images?: number;
       enhance_prompt?: boolean;

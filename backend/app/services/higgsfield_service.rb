@@ -66,12 +66,17 @@ class HiggsfieldService
       prompt: prompt,
       aspect_ratio: options[:aspect_ratio] || "9:16",
       resolution: options[:resolution] || "720p",
-      custom_reference: character_id,
+      custom_reference: {
+        id: character_id,
+        name: reference_name
+      },
       style_id: options[:style_id].presence || REALISTIC_SOUL_STYLE_ID,
       style_strength: options[:style_strength] || 1,
       result_images: options[:result_images] || 1,
       enhance_prompt: options.key?(:enhance_prompt) ? options[:enhance_prompt] : true
     }
+
+    raise APIError, "custom_reference ausente" if payload.dig(:custom_reference, :id).blank?
 
     # Imagem de referência opcional — enviar URL pública
     if options[:images].present?
@@ -85,13 +90,13 @@ class HiggsfieldService
 
     payload[:soul_style] = options[:soul_style] if options[:soul_style].present?
 
-    payload_keys = payload.keys.inspect
     Rails.logger.info(
-      "[Higgsfield] POST model=#{SOUL_CHARACTER_MODEL} " \
-      "reference_id=#{character_id[0..12]}... reference_name=#{reference_name.inspect} " \
-      "custom_reference=#{payload[:custom_reference][0..12]}... " \
-      "style_id=#{payload[:style_id]} image_reference=#{payload.key?(:image_reference) ? "present" : "absent"} " \
-      "keys=#{payload_keys} prompt=#{prompt.truncate(120).inspect}"
+      "[Higgsfield] Soul Character payload " \
+      "custom_reference.id=#{payload.dig(:custom_reference, :id).to_s[0..12]}... " \
+      "custom_reference.name=#{payload.dig(:custom_reference, :name).inspect} " \
+      "style_id=#{payload[:style_id]} " \
+      "image_reference=#{payload.key?(:image_reference) ? "present" : "absent"} " \
+      "prompt=#{payload[:prompt].to_s.truncate(160).inspect}"
     )
 
     body, status = post(SOUL_CHARACTER_MODEL, payload)

@@ -184,7 +184,11 @@ export default function GenerateAREA69() {
   }
 
   async function handleGenerate() {
-    if (!canGenerate || !selectedSoulId) return;
+    if (!selectedModelData || !selectedSoulId) {
+      setGenError("Selecione um modelo treinado antes de gerar.");
+      return;
+    }
+    if (!canGenerate) return;
 
     setGenerating(true);
     setResults([]);
@@ -203,10 +207,6 @@ export default function GenerateAREA69() {
         resolution,
         style_id: REALISTIC_SOUL_STYLE_ID,
         style_strength: REALISTIC_SOUL_STYLE_STRENGTH,
-        custom_reference: {
-          id: selectedSoulId,
-          name: selectedModelData?.name ?? "AREA69 Character",
-        },
         character_strength: characterStrength,
         result_images: resultImages,
         enhance_prompt: enhancePrompt,
