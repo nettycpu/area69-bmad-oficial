@@ -56,8 +56,8 @@ export default function GenerateAREA69() {
   const consecutiveErrorsRef = useRef(0);
   const [costPerImage, setCostPerImage] = useState(COST_PER_IMAGE);
 
-  const selectedSoulId =
-    trainedModels.find((m) => m.id === selectedModel)?.soulId ?? null;
+  const selectedModelData = trainedModels.find((m) => m.id === selectedModel) ?? null;
+  const selectedSoulId = selectedModelData?.soulId ?? null;
   const totalCost = costPerImage * resultImages;
   const canGenerate =
     prompt.trim().length >= 3 && selectedSoulId && !generating;
@@ -203,6 +203,10 @@ export default function GenerateAREA69() {
         resolution,
         style_id: REALISTIC_SOUL_STYLE_ID,
         style_strength: REALISTIC_SOUL_STYLE_STRENGTH,
+        custom_reference: {
+          id: selectedSoulId,
+          name: selectedModelData?.name ?? "AREA69 Character",
+        },
         character_strength: characterStrength,
         result_images: resultImages,
         enhance_prompt: enhancePrompt,
@@ -354,6 +358,17 @@ export default function GenerateAREA69() {
               </p>
             </div>
           </div>
+
+          {selectedSoulId && (
+            <div className="bg-white border border-black/8 p-5">
+              <p className="text-xs font-black uppercase tracking-widest text-black/40 mb-2">
+                Reference ID
+              </p>
+              <p className="text-[11px] text-black/50 font-medium break-all">
+                {selectedSoulId}
+              </p>
+            </div>
+          )}
 
           {/* Reference images — OPTIONAL */}
           <div className="bg-white border border-black/8 p-5">

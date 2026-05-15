@@ -361,6 +361,11 @@ module Api
       model = current_user.avatar_models.find_by!(id: model_id)
       return render_error("Modelo nao esta pronto — Character ID nao encontrado. Conclua o treinamento primeiro.") unless model.soul_id.present? && model.status == "ready"
 
+      requested_reference = params[:custom_reference].is_a?(ActionController::Parameters) ? params[:custom_reference].permit(:id, :name).to_h : {}
+      if requested_reference["id"].present? && requested_reference["id"].to_s != model.soul_id.to_s
+        return render_error("Reference ID nao pertence ao modelo selecionado")
+      end
+
       return render_error("Prompt e obrigatorio") if prompt.blank?
       return render_error("Prompt deve ter pelo menos #{MIN_PROMPT_LENGTH} caracteres") if prompt.length < MIN_PROMPT_LENGTH
       return render_error("Prompt deve ter no maximo #{MAX_PROMPT_LENGTH} caracteres") if prompt.length > MAX_PROMPT_LENGTH

@@ -57,6 +57,7 @@ class HiggsfieldServicePayloadTest < ActiveSupport::TestCase
     )
     assert_equal "1cb4b936-77bf-4f9a-9039-f3d349a4cdbe", service.posted_payload[:style_id]
     assert_equal 1, service.posted_payload[:style_strength]
+    assert_not_equal service.posted_payload[:style_id], service.posted_payload[:custom_reference][:id]
     assert_nil service.posted_payload[:character_id]
   end
 end
