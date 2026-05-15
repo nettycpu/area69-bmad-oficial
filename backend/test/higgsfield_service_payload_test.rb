@@ -48,16 +48,11 @@ class HiggsfieldServicePayloadTest < ActiveSupport::TestCase
       enhance_prompt: true
     )
 
-    assert_equal(
-      {
-        id: "69e2e1cd-5094-49f1-907f-ca8c0adc5353",
-        name: "Mel Maia"
-      },
-      service.posted_payload[:custom_reference]
-    )
+    assert_equal "69e2e1cd-5094-49f1-907f-ca8c0adc5353", service.posted_payload[:custom_reference]
     assert_equal "1cb4b936-77bf-4f9a-9039-f3d349a4cdbe", service.posted_payload[:style_id]
     assert_equal 1, service.posted_payload[:style_strength]
-    assert_not_equal service.posted_payload[:style_id], service.posted_payload[:custom_reference][:id]
+    assert_not_equal service.posted_payload[:style_id], service.posted_payload[:custom_reference]
+    assert_nil service.posted_payload[:image_reference]
     assert_nil service.posted_payload[:character_id]
   end
 end

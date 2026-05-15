@@ -66,10 +66,7 @@ class HiggsfieldService
       prompt: prompt,
       aspect_ratio: options[:aspect_ratio] || "9:16",
       resolution: options[:resolution] || "720p",
-      custom_reference: {
-        id: character_id,
-        name: reference_name
-      },
+      custom_reference: character_id,
       style_id: options[:style_id].presence || REALISTIC_SOUL_STYLE_ID,
       style_strength: options[:style_strength] || 1,
       result_images: options[:result_images] || 1,
@@ -89,7 +86,13 @@ class HiggsfieldService
     payload[:soul_style] = options[:soul_style] if options[:soul_style].present?
 
     payload_keys = payload.keys.inspect
-    Rails.logger.info("[Higgsfield] POST model=#{SOUL_CHARACTER_MODEL} character=#{character_id[0..12]}... keys=#{payload_keys} prompt=#{prompt.truncate(120).inspect}")
+    Rails.logger.info(
+      "[Higgsfield] POST model=#{SOUL_CHARACTER_MODEL} " \
+      "reference_id=#{character_id[0..12]}... reference_name=#{reference_name.inspect} " \
+      "custom_reference=#{payload[:custom_reference][0..12]}... " \
+      "style_id=#{payload[:style_id]} image_reference=#{payload.key?(:image_reference) ? "present" : "absent"} " \
+      "keys=#{payload_keys} prompt=#{prompt.truncate(120).inspect}"
+    )
 
     body, status = post(SOUL_CHARACTER_MODEL, payload)
 
